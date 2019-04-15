@@ -13,10 +13,14 @@ using namespace std;
 
 namespace vbconv {
 
+void File::load(const string &nfilename) {
+	ifstream file(nfilename);
+	load(file, nfilename);
+}
 
-void File::load(const string &filename) {
-	this->filename = filename;
-	ifstream file(filename);
+
+void File::load(std::istream &file, const string &nfilename) {
+	filename = nfilename;
 
 	// From here
 	// https://stackoverflow.com/questions/2602013/read-whole-ascii-file-into-c-stdstring
@@ -30,6 +34,11 @@ void File::load(const string &filename) {
 	);
 
 	tokenize();
+	tokens.setKeywords();
+	tokens.groupBraces();
+	tokens.groupLines();
+	tokens.printRecursive(cout, 1);
+	tokens.groupBlocks(0);
 }
 
 void File::tokenize() {
@@ -80,11 +89,17 @@ void File::tokenize() {
 	Token token;
 	tokens.clear();
 
+	auto appendSpaces = [&] () {
+		while (isspace(peek())) {
+			token.trailingSpace += get();
+		}
+	};
+
 	auto newWord = [&] () {
 		if (token.empty()) {
 			cout << "trying to create new word but the old is empty" << endl;
 		}
-		token.extent.begin = currentLocation;
+		token.location(currentLocation);
 		tokens.push_back(move(token));
 
 //		cout << "New token " << token << endl;
@@ -124,6 +139,26 @@ void File::tokenize() {
 				p = peek();
 			}
 		}
+		else if (c == '"') {
+			if (!token.empty()) {
+				newWord();
+			}
+			token.type = Token::Literal;
+			token += c;
+			while (peek() != '"') {
+				auto p = peek();
+				if (p == '\n') {
+					throw runtime_error("end of line before end of quote (\") " + token);
+				}
+				else if (p == -1) {
+					throw runtime_error("reached end of file before end of quote" + token);
+				}
+				token += get();
+			}
+			token += get();
+			appendSpaces();
+			newWord();
+		}
 		else if (isspecial(c)) {
 			if (!token.empty()) {
 				newWord();
@@ -134,18 +169,21 @@ void File::tokenize() {
 //			while (isspecial(peek())) {
 //				token += get();
 //			}
-			while (isspace(peek())) {
-				token.trailingSpace += get();
-			}
+			appendSpaces();
 			newWord();
 		}
 		else {
+			token.type = Token::Word;
 			if (!token.trailingSpace.empty()) {
 				newWord();
 			}
 			token += c;
 		}
 		c = get();
+	}
+
+	if (!token.empty()) {
+		newWord();
 	}
 }
 

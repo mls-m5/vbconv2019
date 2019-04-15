@@ -5,7 +5,7 @@
 cppflags += -std=c++14      # c++ only flags
 cflags +=                  # c only flags 
 flags += -Iinclude         # global flags
-flags += -ggdb -D_GLIBCXX_DEBUG
+flags += -ggdb -D_GLIBCXX_DEBUG -O0
 
 ## Main target
 main.flags += -W -Wall -Wno-unused-parameter -Wno-sign-compare #-Werror
@@ -21,4 +21,6 @@ main.libs += # -lGL -lSDL  # libraries to add at link time
 # main_debug.flags += -g -O0
 # main_debug.dir = bin/debug
 # main_debug.objdir = bin/debugobj
+
+external tests
 

@@ -13,17 +13,24 @@
 
 namespace vbconv {
 
-class File: std::enable_shared_from_this<File> {
+class File {
 	public:
 	typedef std::string string;
 
+	File() {}
 	File(const string &filename) {
 		load(filename);
 	}
+	File(std::istream &stream, const string &nfilename) {
+		load(stream, nfilename);
+	}
 
+	// Load a stream and set the filename to the one given
+	void load(std::istream &stream, const string &filename);
+
+	// Load a file from a filename
 	void load(const string &filename);
 	void tokenize();
-	void group();
 
 	auto begin() {
 		return tokens.begin();
@@ -34,7 +41,7 @@ class File: std::enable_shared_from_this<File> {
 	}
 
 	string content;
-	Tokens tokens;
+	Group tokens;
 	string filename;
 };
 
