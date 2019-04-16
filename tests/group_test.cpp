@@ -32,8 +32,14 @@ class test
 
 	end sub
 
-	sub move (x as single, y as single)
-		print "hej"
+	sub move (x as single, y as single, z as long)
+		if x > y then
+			print "hej"
+		elif y > z then
+			print "da"
+		else
+			print "re"
+		end if
 	end sub	
 
 end class
@@ -46,25 +52,31 @@ TEST_SUIT_BEGIN
 
 
 TEST_CASE("test") {
-//	auto f = createAsFile(testCode1);
 	stringstream ss(testCode1);
-//	File f(ss, string("stdin"));
 	File f;
 	f.load(ss, "test");
 
 	f.tokens.printRecursive(cout, 0);
 
-	cout << "=== starting test output" << endl;
-
-	cout << f.tokens.children.front().spelling() << endl;
-
-	for (int i = 0; i < f.tokens.children.size(); ++i) {
-		cout << f.tokens.children[i].spelling() << endl;
-	}
-
-	ASSERT_EQ(f.tokens.children.size(), 8);
+//	cout << "=== starting test output" << endl;
+//
+//	cout << f.tokens.children.front().spelling() << endl;
+//
+//	for (int i = 0; i < f.tokens.children.size(); ++i) {
+//		cout << f.tokens.children[i].spelling() << endl;
+//	}
+//
+//	ASSERT_EQ(f.tokens.children.size(), 8);
 }
 
+TEST_CASE("binary expression") {
+	stringstream ss("test + x * y ^ 2");
+	File f;
+
+	f.load(ss, "test");
+	cout << "result: " << endl;
+	f.tokens.printRecursive(cout, 0);
+}
 
 
 TEST_SUIT_END

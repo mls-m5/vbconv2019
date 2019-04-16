@@ -78,19 +78,25 @@ public:
 #define tn(t) t, //Macros to process the typemacros.h
 #define tl(t, s) t,
 #define td(t) t,
+#define ts(t) t,
 
 	enum Type {
+		Any = -2,
 		None = -1,
 		Word = 0,
-		Literal,
-		Numeric,
-		Operator,
 
-		Parenthesis,
-		Block,
-		BlockBegin,
-		BlockEnd,
-		Line,
+//		Literal,
+//		Numeric,
+//		Operator,
+//		BinaryOperator,
+//		BinaryExpression,
+//
+//		Parenthesis,
+//		Block,
+//		BlockBegin,
+//		BlockEnd,
+//		Line,
+//		Group,
 
 #include "typemacros.h"
 
@@ -99,6 +105,7 @@ public:
 #undef tn
 #undef tl
 #undef td
+#undef ts
 };
 
 std::ostream& operator <<(std::ostream& stream, const Token& t);
@@ -216,6 +223,9 @@ public:
 
 	// Recursiely group blocks like if,.. endif etc
 	void groupBlocks(size_t begin);
+
+	//Do the more advanced pattern matching
+	void groupPatterns();
 
 	void group(
 			std::vector<Group>::iterator b,

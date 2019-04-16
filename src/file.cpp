@@ -37,8 +37,10 @@ void File::load(std::istream &file, const string &nfilename) {
 	tokens.setKeywords();
 	tokens.groupBraces();
 	tokens.groupLines();
-	tokens.printRecursive(cout, 1);
+//	tokens.printRecursive(cout, 0);
 	tokens.groupBlocks(0);
+//	tokens.printRecursive(cout, 0);
+	tokens.groupPatterns();
 }
 
 void File::tokenize() {
@@ -106,7 +108,7 @@ void File::tokenize() {
 		token.clear();
 	};
 
-	char c = get();
+	char c = content.front(); //get();
 
 	while (c != -1) {
 		if (isspace(c)) {
