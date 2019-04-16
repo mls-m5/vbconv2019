@@ -22,6 +22,7 @@ public:
 
 	string trailingSpace;
 	string leadingSpace;
+	string cased;
 
 	struct Location {
 		unsigned offset = 0;
@@ -106,6 +107,16 @@ public:
 #undef tl
 #undef td
 #undef ts
+
+	void toLower() {
+		if (type == Literal) {
+			return;
+		}
+		cased = *this;
+		for (auto &c: *this) {
+			c = tolower(c);
+		}
+	}
 };
 
 std::ostream& operator <<(std::ostream& stream, const Token& t);

@@ -24,23 +24,35 @@ File createAsFile(string str) {
 	return move(f);
 }
 
+class TestFile: public File {
+public:
+	TestFile(string code) {
+		stringstream ss(code);
+		load(ss, "test");
+	}
+};
+
 const char *testCode1 = R"_(
 class test
 
-	sub init ()
+	Private Sub init ()
 		print "hej"
 
-	end sub
+	End Sub
 
-	sub move (x as single, y as single, z as long)
+	Public sub move (x as single, y as single, z as long)
 		if x > y then
-			print "hej"
+			print "Hej"
 		elif y > z then
 			print "da"
 		else
 			print "re"
 		end if
+
 	end sub	
+
+	Private Sub Do2 ()
+	End Sub
 
 end class
 
@@ -72,10 +84,24 @@ TEST_CASE("test") {
 TEST_CASE("binary expression") {
 	stringstream ss("test + x * y ^ 2");
 	File f;
-
 	f.load(ss, "test");
+
 	cout << "result: " << endl;
 	f.tokens.printRecursive(cout, 0);
+	ASSERT_EQ(f.tokens.front().type(), Token::AdditionOrSubtraction);
+}
+
+TEST_CASE("property accessor") {
+	TestFile f("apa.bepa");
+
+	f.tokens.printRecursive(cout, 0);
+
+	ASSERT_EQ(f.tokens.front().type(), Token::PropertyAccessor);
+}
+
+TEST_CASE("file load test") {
+	File f("Ship.cls");
+//	f.tokens.printRecursive(cout, 0);
 }
 
 

@@ -27,6 +27,9 @@ ts(BlockEnd)
 ts(BlockBegin)
 ts(FunctionBlock)
 
+ts(PropertyAccessor)
+ts(MemberAccessor)
+
 // Binary operations in falling precedence
 // https://docs.microsoft.com/en-us/dotnet/visual-basic/language-reference/operators/operator-precedence
 ts(Exponentiation)
@@ -49,25 +52,24 @@ ts(SubStatement)
 ts(EndStatement)
 ts(ClassStatement)
 ts(IfStatement)
+ts(InlineIfStatement)
 ts(ElIfStatement)
 ts(ElseStatement)
 
 ts(MethodCall)
 
 tn(As)
-tn(Long)
 tn(Sub)
+tn(Begin)
 tn(End)
 tn(Function)
 tn(Class)
 
-td(AccessSpecifiersBegin)
 tn(Public)
 tn(Private)
 tn(Protected)
-td(AccessSpecifiersEnd)
 
-
+ts(AccessSpecifier)
 
 tn(Dim)
 tn(Redim)
@@ -96,6 +98,7 @@ tn(Mod)
 
 td(TypesBegin)
 tn(Single)
+tn(Long)
 tn(Double)
 tn(Byte)
 tn(Integer)
@@ -119,6 +122,7 @@ tn(And)
 tn(Or)
 tn(Xor)
 tl(Coma, ",")
+tl(Dot, ".")
 tl(Asterisks, "*")
 tl(Slash, "/")
 tl(Backslash, "\\")

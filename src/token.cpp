@@ -110,7 +110,7 @@ struct Pattern: public vector<TokenPattern> {
 };
 
 
-TokenPattern comparisonTokens = {
+static TokenPattern comparisonTokens = {
 	Token::Equal,
 	Token::NotEqual,
 	Token::More,
@@ -123,7 +123,15 @@ TokenPattern comparisonTokens = {
 //	Token::TypeOf
 };
 
+static TokenPattern accessSpecifierTokens = {
+		Token::Public,
+		Token::Private,
+		Token::Protected,
+};
+
 vector<Pattern> patternRules = {
+	{{Token::Word, Token::Dot, Token::Word}, Token::PropertyAccessor},
+	{{Token::Dot, Token::Word}, Token::PropertyAccessor},
 	{{Token::Any, Token::Exp, Token::Any}, Token::Exponentiation},
 	{{Token::Any, TokenPattern({Token::Asterisks, Token::Slash}), Token::Any}, Token::MultiplicationOrDivision},
 	{{Token::Any, TokenPattern({Token::Backslash}), Token::Any}, Token::IntegerDivision},
@@ -139,9 +147,11 @@ vector<Pattern> patternRules = {
 	{{Token::End, Token::Any}, Token::EndStatement},
 
 	{{Token::Word, Token::Any}, Token::MethodCall, Pattern::FromLeft, Token::Line},
-	{{Token::If, Token::Any, Token::Then}, Token::IfStatement, Pattern::FromLeft, Token::BlockBegin},
+	{{Token::If, Token::Any, Token::Then, Token::Any}, Token::InlineIfStatement, Pattern::LineRule, Token::Any},
+	{{Token::If, Token::Any, Token::Then}, Token::IfStatement, Pattern::LineRule, Token::Token::Line},
 	{{Token::Elif, Token::Any, Token::Then}, Token::ElIfStatement, Pattern::FromLeft, Token::Line},
 	{{Token::Else}, Token::ElseStatement, Pattern::FromLeft, Token::Line},
+	{{accessSpecifierTokens, Token::Any}, Token::AccessSpecifier },
 };
 
 static class InitClass {
@@ -181,7 +191,7 @@ void Group::groupBraces(size_t start) {
 		++it;
 	}
 	for (; it != end(); ++it) {
-		cout << it->token << endl;
+//		cout << it->token << endl;
 		if (it->token == "(") {
 			groupBraces(it - begin()); //Find inner paranthesis
 		}
@@ -245,7 +255,7 @@ void Group::groupLines() {
 //		cout << "test: " << it->spelling() << endl;
 		if (it->lineEnding()) {
 			group(first, it + 1, false, Token::Line);
-			cout << "new group: '" << first->spelling() << "'" << endl;
+//			cout << "new group: '" << first->spelling() << "'" << endl;
 			it = first;
 			++first;
 		}
@@ -257,14 +267,15 @@ void Group::groupBlocks(size_t b) {
 			{Token::Class, Token::End},
 			{Token::If, Token::End},
 			{Token::While, Token::End},
-			{Token::For, Token::End},
+			{Token::For, Token::Next},
 			{Token::Sub, Token::End},
 			{Token::Function, Token::End},
+			{Token::Begin, Token::End},
 //			"else",
 //			"elseif",
 	};
 
-	Token::Type endString = Token::None;
+	Token::Type endType = Token::None;
 
 	auto isBlockStart = [&](Group &g) -> pair<bool, Token::Type> {
 		if (g.type() != Token::Line) {
@@ -273,18 +284,27 @@ void Group::groupBlocks(size_t b) {
 		if (g.empty()) {
 			return {false, Token::None};
 		}
+		auto type = g.front().type();
+		if (type >= Token::Public && type <= Token::Private) {
+			if (g.size() > 1) {
+				type = g[1].type();
+			}
+			else {
+				return {false, Token::None};
+			}
+		}
 		for (auto &bn: blockNames) {
-			if (bn.first == g.front().type()) {
+			if (bn.first == type) {
 				return {true, bn.second};
 			}
 		}
 		return {false, Token::None};
 	};
 	auto isBlockEnd = [&](Group &g) {
-		if (endString == Token::None) {
+		if (endType == Token::None) {
 			return false;
 		}
-		if (g.type() == endString) {
+		if (g.type() == endType) {
 			return true;
 		}
 		if(g.type() != Token::Line) {
@@ -293,7 +313,7 @@ void Group::groupBlocks(size_t b) {
 		if (g.empty()) {
 			return false;
 		}
-		if (g.front().type() == endString) {
+		if (g.front().type() == endType) {
 			return true;
 		}
 	};
@@ -305,7 +325,7 @@ void Group::groupBlocks(size_t b) {
 	auto first = begin() + b;
 	auto res = isBlockStart(*first);
 	if (res.first) {
-		endString = res.second;
+		endType = res.second;
 		++first;
 	}
 	for (auto it=first; it != end(); ++it) {
@@ -313,7 +333,7 @@ void Group::groupBlocks(size_t b) {
 		if (isBlockStart(*it).first) {
 			groupBlocks(it - begin());
 		}
-		else if (endString != Token::None && isBlockEnd(*it)) {
+		else if (endType != Token::None && isBlockEnd(*it)) {
 			(begin() + b)->type(Token::BlockBegin);
 			it->type(Token::BlockEnd);
 //			cout << "creating block from " << b << " " << " to " << it + 1 - begin() << endl;
@@ -325,38 +345,44 @@ void Group::groupBlocks(size_t b) {
 }
 
 void Group::groupPatterns() {
-	for (auto &pattern: patternRules) {
-		if (size() == pattern.size() && type() == pattern.result) {
-			// Ignore patterns with same result type and length (it has probably been matched already)
-		}
-		if (size() > pattern.size()) {
-			// The pattern does not fit
-		}
-		if (pattern.options == pattern.FromLeft) {
-			//Skip to match the first element if the pattern is the same type as this
-			for (int i = (type() == pattern.result); i + pattern.size() < size() + 1; ++i) {
-				if(pattern.isMatch(i, *this)) {
-					group(i, i + pattern.size(), false, pattern.result);
+	if (size() > 1) {
+		//No point in group element with only one element
+		for (auto &pattern: patternRules) {
+			if (size() == pattern.size() && type() == pattern.result) {
+				// Ignore patterns with same result type and length (it has probably been matched already)
+			}
+			//		else if (size() > pattern.size()) {
+			//			// The pattern does not fit
+			//		}
+			else if (pattern.options == pattern.FromLeft) {
+				//Skip to match the first element if the pattern is the same type as this
+				for (int i = (type() == pattern.result); i + pattern.size() < size() + 1; ++i) {
+					if(pattern.isMatch(i, *this)) {
+						group(i, i + pattern.size(), false, pattern.result);
+					}
 				}
 			}
-		}
-		else if (pattern.options == Pattern::FromRight) {
-			//Do this
+			else if (pattern.options == Pattern::FromRight) {
+				//Do this
 
-			for (int i = - pattern.size() + size(); i >= 0; --i) {
-				if (pattern.isMatch(i, *this)) {
-					group(i, i + pattern.size(), false, pattern.result);
+				for (int i = - pattern.size() + size(); i >= 0; --i) {
+					if (pattern.isMatch(i, *this)) {
+						group(i, i + pattern.size(), false, pattern.result);
+					}
 				}
 			}
-		}
-		else if (pattern.options == Pattern::LineRule) {
-			if (pattern.isMatch(0, *this)) {
-				group(0, size(), false, pattern.result);
+			else if (pattern.options == Pattern::LineRule) {
+				if (size() >= pattern.size() && pattern.result != type()) {
+					if (pattern.isMatch(0, *this)) {
+						group(0, size(), false, pattern.result);
+					}
+				}
 			}
 		}
 	}
 
-	for (auto &c: children) {
+	for (int i = 0; i < children.size(); ++i) {
+		auto &c = children[i];
 		c.groupPatterns();
 	}
 }
@@ -385,7 +411,13 @@ void Group::printRecursive(std::ostream &stream, int depth) {
 	for (int i = 0; i < depth; ++i) stream << "    ";
 
 //	stream << location();
-	stream << "'" << (string) token << "' ---> (" << typeString() << ")" << endl;
+	stream << "'" << (string) token << "' ---> (" << typeString() << ")" ;
+
+	if (!token.cased.empty() && token.cased != token) {
+		stream << " cased: '" << token.cased << "'";
+	}
+
+	stream << endl;
 
 	for (auto &c: children) {
 		c.printRecursive(stream, depth + 1);

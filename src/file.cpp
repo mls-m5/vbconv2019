@@ -15,6 +15,15 @@ namespace vbconv {
 
 void File::load(const string &nfilename) {
 	ifstream file(nfilename);
+
+	if (!file.is_open()) {
+		throw "could not open file";
+	}
+
+	file.seekg(0, std::ios::end);
+	content.reserve(file.tellg());
+	file.seekg(0, std::ios::beg);
+
 	load(file, nfilename);
 }
 
@@ -24,9 +33,6 @@ void File::load(std::istream &file, const string &nfilename) {
 
 	// From here
 	// https://stackoverflow.com/questions/2602013/read-whole-ascii-file-into-c-stdstring
-	file.seekg(0, std::ios::end);
-	content.reserve(file.tellg());
-	file.seekg(0, std::ios::beg);
 
 	content.assign(
 			(std::istreambuf_iterator<char>(file)),
@@ -125,7 +131,16 @@ void File::tokenize() {
 				}
 			}
 		}
-		else if ((isdigit(c)) || (c == '.' && peek() == isdigit(c))) {
+		else if (c == '\'') {
+			token.trailingSpace += c;
+			while (peek() != '\n' && peek() != -1) {
+				token.trailingSpace += get();
+			}
+			if (peek() == '\n') {
+				token.trailingSpace += get();
+			}
+		}
+		else if (token.empty() && ((isdigit(c)) || (c == '.' && peek() == isdigit(c)))) {
 			bool decimalPoint = (c == '.');
 			if (!token.empty()) {
 				newWord();
@@ -186,6 +201,10 @@ void File::tokenize() {
 
 	if (!token.empty()) {
 		newWord();
+	}
+
+	for (auto &t: tokens) {
+		t.token.toLower();
 	}
 }
 
