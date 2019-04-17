@@ -14,16 +14,6 @@
 using namespace std;
 using namespace vbconv;
 
-File createAsFile(string str) {
-	File f;
-
-	stringstream ss(str);
-
-	f.load(ss, "stdin");
-
-	return move(f);
-}
-
 class TestFile: public File {
 public:
 	TestFile(string code) {
@@ -64,49 +54,67 @@ TEST_SUIT_BEGIN
 
 
 TEST_CASE("test") {
-	stringstream ss(testCode1);
-	File f;
-	f.load(ss, "test");
+	TestFile f(testCode1);
 
 	f.tokens.printRecursive(cout, 0);
-
-//	cout << "=== starting test output" << endl;
-//
-//	cout << f.tokens.children.front().spelling() << endl;
-//
-//	for (int i = 0; i < f.tokens.children.size(); ++i) {
-//		cout << f.tokens.children[i].spelling() << endl;
-//	}
-//
-//	ASSERT_EQ(f.tokens.children.size(), 8);
 }
 
+
 TEST_CASE("binary expression") {
-	stringstream ss("test + x * y ^ 2");
+	stringstream ss("test + x * y ^ 2 + 6");
 	File f;
 	f.load(ss, "test");
 
 	cout << "result: " << endl;
-	f.tokens.printRecursive(cout, 0);
+	f.tokens.printRecursive(cout);
 	ASSERT_EQ(f.tokens.front().type(), Token::AdditionOrSubtraction);
+	ASSERT_EQ(f.tokens.size(), 1);
 }
+
+
+TEST_CASE("type characters") {
+	TestFile f("x!");
+
+	f.tokens.printRecursive(cout);
+	ASSERT_EQ(f.tokens.front().type(), Token::TypeCharacterClause);
+}
+
 
 TEST_CASE("property accessor") {
 	TestFile f("apa.bepa");
 
-	f.tokens.printRecursive(cout, 0);
+	f.tokens.printRecursive(cout);
 
 	ASSERT_EQ(f.tokens.front().type(), Token::PropertyAccessor);
 }
+
 
 TEST_CASE("function call") {
 	TestFile f("x.y( z )");
 	f.tokens.printRecursive(cout, 0);
 }
 
-TEST_CASE("file load test") {
-	File f("Ship.cls");
-	f.tokens.printRecursive(cout, 0);
+TEST_CASE("Coma list") {
+	TestFile f("1, 2, 3");
+	f.tokens.printRecursive(cout);
+	ASSERT_EQ(f.tokens.size(), 1);
+}
+
+TEST_CASE("Public variable list") {
+	TestFile f("Public XPos#, YPos#, Angle!");
+	f.tokens.printRecursive(cout);
+	ASSERT_EQ(f.tokens.size(), 1);
+}
+
+TEST_CASE("z - file load test") {
+	try {
+		File f("Ship.cls");
+		f.tokens.printRecursive(cout, 0);
+	}
+	catch (VerificationError &e) {
+		cout << e.what() << endl;
+		ERROR("verification failed");
+	}
 }
 
 

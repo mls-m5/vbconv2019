@@ -27,6 +27,8 @@ ts(BlockEnd)
 ts(BlockBegin)
 ts(FunctionBlock)
 
+ts(Heading)
+
 ts(PropertyAccessor)
 ts(MemberAccessor)
 
@@ -47,6 +49,7 @@ ts(InclusiveDisjunction) // Or, OrElse
 ts(ExclusiveDisjunction) // Xor
 
 ts(AsClause)
+ts(TypeCharacterClause)
 ts(ComaList)
 ts(SubStatement)
 ts(EndStatement)
@@ -132,8 +135,12 @@ tl(Coma, ",")
 tl(Dot, ".")
 tl(Asterisks, "*")
 tl(Slash, "/")
+tl(Percentage, "%")
 tl(Hash, "#")
 tl(Exclamation, "!")
+tl(At, "@")
+tl(Et, "&")
+tl(Dollar, "$")
 tl(Backslash, "\\")
 tl(Plus, "+")
 tl(Minus, "-")

@@ -47,8 +47,24 @@ public:
 		((string*)this)->clear();
 	}
 
+	// How it was originally written
 	string spelling() {
-		return leadingSpace + *((string*)this) + trailingSpace;
+		if (cased.empty()) {
+			return leadingSpace + *((string*)this) + trailingSpace;
+		}
+		else {
+			return leadingSpace + cased + trailingSpace;
+		}
+	}
+
+	// How it was written without whitespace
+	string wordSpelling() {
+		if (cased.empty()) {
+			return *((string*)this);
+		}
+		else {
+			return cased;
+		}
 	}
 
 	string &name() {
@@ -118,6 +134,19 @@ public:
 		}
 	}
 };
+
+
+class VerificationError: public std::exception {
+public:
+	VerificationError(Token t, std::string message);
+
+	virtual char const * what() const noexcept {
+		return message.c_str();
+	}
+
+	std::string message;
+};
+
 
 std::ostream& operator <<(std::ostream& stream, const Token& t);
 std::ostream& operator <<(std::ostream& stream, const Token::Location& location);
@@ -238,6 +267,8 @@ public:
 	//Do the more advanced pattern matching
 	void groupPatterns();
 
+	void verify(); // Check for obvious syntax errors
+
 	void group(
 			std::vector<Group>::iterator b,
 			std::vector<Group>::iterator e,
@@ -288,4 +319,5 @@ public:
 		return type() > Token::TypesBegin && type() < Token::TypesEnd;
 	}
 };
+
 }  // namespace name

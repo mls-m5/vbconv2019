@@ -43,11 +43,14 @@ void File::load(std::istream &file, const string &nfilename) {
 	tokens.setKeywords();
 	tokens.groupBraces();
 	tokens.groupLines();
+	groupHeader();
 //	tokens.printRecursive(cout, 0);
 	tokens.groupBlocks(0);
 //	tokens.printRecursive(cout, 0);
 	tokens.groupPatterns();
+	tokens.verify();
 }
+
 
 void File::tokenize() {
 	Token::Location currentLocation;
@@ -212,6 +215,29 @@ void File::tokenize() {
 
 	for (auto &t: tokens) {
 		t.token.toLower();
+	}
+}
+
+void File::groupHeader() {
+	if (tokens.empty()) {
+		return;
+	}
+	if (!tokens.front().empty() && tokens.front().front().token.wordSpelling() == "VERSION") {
+		bool foundAttributes;
+		for (auto it = tokens.begin(); it != tokens.end(); ++it) {
+			if (foundAttributes) {
+				if (!it->empty() && it->front().token.wordSpelling() != "Attribute") {
+					//End of attributes
+					tokens.group(0, it - tokens.begin(), false, Token::Heading);
+					return;
+				}
+			}
+			else {
+				if (!it->empty() && it->front().token.wordSpelling() == "Attribute") {
+					foundAttributes = true;
+				}
+			}
+		}
 	}
 }
 

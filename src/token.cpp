@@ -134,12 +134,23 @@ static TokenPattern accessSpecifierTokens = {
 		Token::Protected,
 };
 
+// https://docs.microsoft.com/en-us/dotnet/visual-basic/programming-guide/language-features/data-types/type-characters
+static TokenPattern typeCharacters = {
+		Token::Percentage,
+		Token::Et,
+		Token::At,
+		Token::Exclamation,
+		Token::Hash,
+		Token::Dollar,
+};
+
 vector<Pattern> patternRules = {
 	{{Token::Sub, Token::Word, Token::Parenthesis}, Token::SubStatement},
 	{{Token::With, {Token::Word, Token::MemberAccessor}}, Token::WithStatement},
 	{{Token::Class, Token::Word}, Token::SubStatement},
 	{{Token::End, Token::Any}, Token::EndStatement},
 
+	{{Token::Word, typeCharacters}, Token::TypeCharacterClause},
 	{{Token::Word, Token::Dot, Token::Word}, Token::PropertyAccessor},
 	{{Token::Dot, Token::Word}, Token::PropertyAccessor},
 	{{{Token::Word, Token::PropertyAccessor}, Token::Parenthesis}, Token::FunctionCall, Pattern::FromLeft, Token::Any, Token::SubStatement},
@@ -371,14 +382,16 @@ void Group::groupPatterns() {
 			else if (pattern.options == pattern.FromLeft) {
 				//Skip to match the first element if the pattern is the same type as this
 				for (int i = (type() == pattern.result); i + pattern.size() < size() + 1; ++i) {
-					if(pattern.isMatch(i, *this)) {
+					// The same pattern can be matched with the same i
+					// hence the while loop
+					while((i + pattern.size() < size() + 1) && pattern.isMatch(i, *this)) {
 						group(i, i + pattern.size(), false, pattern.result);
 					}
 				}
 			}
 			else if (pattern.options == Pattern::FromRight) {
 				for (int i = - pattern.size() + size(); i >= 0; --i) {
-					if (pattern.isMatch(i, *this)) {
+					while ((i + pattern.size() < size() + 1) && pattern.isMatch(i, *this)) {
 						group(i, i + pattern.size(), false, pattern.result);
 					}
 				}
@@ -396,6 +409,21 @@ void Group::groupPatterns() {
 	for (int i = 0; i < children.size(); ++i) {
 		auto &c = children[i];
 		c.groupPatterns();
+	}
+}
+
+void Group::verify() {
+	for (auto &t: children) {
+		if (t.type() == Token::Block) {
+			t.verify();
+		}
+		if (t.type() == Token::Line || t.type() == Token::BlockBegin || t.type() == Token::BlockEnd) {
+			if (t.children.size() > 1) {
+				stringstream ss;
+				t.printRecursive(ss, 0);
+				throw VerificationError(t.children[1].token, " Expected end of line. Got '" + t.children[1].token.wordSpelling() + "':\n" + t.spelling() + "\n" + ss.str());
+			}
+		}
 	}
 }
 
@@ -439,6 +467,12 @@ void Group::printRecursive(std::ostream &stream, int depth) {
 		for (int i = 0; i < depth; ++i) stream << "    ";
 		stream << "'" << (string) endToken << "'" << endl;
 	}
+}
+
+VerificationError::VerificationError(Token t, string message) {
+	stringstream ss;
+	ss << t.location() << ":error " << message;
+	this->message = ss.str();
 }
 
 }  // namespace name

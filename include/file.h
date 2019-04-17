@@ -31,6 +31,7 @@ class File {
 	// Load a file from a filename
 	void load(const string &filename);
 	void tokenize();
+	void groupHeader();
 
 	auto begin() {
 		return tokens.begin();
