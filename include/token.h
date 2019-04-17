@@ -204,7 +204,7 @@ public:
 	Token concat();
 	Token concatSmall(); // Reduces all spaces to only one single space
 
-	void printRecursive(std::ostream &stream, int depth);
+	void printRecursive(std::ostream &stream, int depth = 0);
 
 	void setKeywords();
 

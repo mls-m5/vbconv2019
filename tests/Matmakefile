@@ -5,3 +5,4 @@ dir = bin/bin/
 
 group_test.exe = %
 group_test.src += group_test.cpp
+group_test.copy += Ship.cls

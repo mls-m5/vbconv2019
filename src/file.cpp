@@ -90,7 +90,7 @@ void File::tokenize() {
 	};
 
 	auto isspecial = [&] (char c) {
-		const string chars("+-*/=\".'()[]{}\\,!");
+		const string chars("+-*/=\".'()[]{}\\,!#");
 		return chars.find(c) != string::npos;
 	};
 
@@ -98,8 +98,15 @@ void File::tokenize() {
 	tokens.clear();
 
 	auto appendSpaces = [&] () {
-		while (isspace(peek())) {
-			token.trailingSpace += get();
+		while (isspace(peek()) || peek() == '\'') {
+			while (isspace(peek())) {
+				token.trailingSpace += get();
+			}
+			if (peek() == '\'') {
+				while(peek() != '\n' && peek() != -1) {
+					token.trailingSpace += get();
+				}
+			}
 		}
 	};
 

@@ -86,11 +86,12 @@ struct Pattern: public vector<TokenPattern> {
 		LineRule, //Only match beginning of line and group the whole line
 	} options;
 
-	Pattern(vector<TokenPattern> t, Token::Type result, Options options = FromLeft, TokenPattern parent = Token::Any):
+	Pattern(vector<TokenPattern> t, Token::Type result, Options options = FromLeft, TokenPattern parent = Token::Any, TokenPattern blacklistedParent = Token::None):
 		vector<TokenPattern>(t),
 		result(result),
 		options(options),
-		parentConstraint(parent)
+		parentConstraint(parent),
+		blacklistedParent(blacklistedParent)
 		{}
 
 	bool isMatch(int index, Group &g) {
@@ -102,11 +103,15 @@ struct Pattern: public vector<TokenPattern> {
 		if (parentConstraint != g.type()) {
 			return false;
 		}
+		if (blacklistedParent == g.type()) {
+			return false;
+		}
 		return true;
 	}
 
 	Token::Type result = Token::Group;
 	TokenPattern parentConstraint; // If the parent needs to be a particular type
+	TokenPattern blacklistedParent = {Token::None}; //prevent two or more statements to create patterns from each other in infinity
 };
 
 
@@ -130,8 +135,14 @@ static TokenPattern accessSpecifierTokens = {
 };
 
 vector<Pattern> patternRules = {
+	{{Token::Sub, Token::Word, Token::Parenthesis}, Token::SubStatement},
+	{{Token::With, {Token::Word, Token::MemberAccessor}}, Token::WithStatement},
+	{{Token::Class, Token::Word}, Token::SubStatement},
+	{{Token::End, Token::Any}, Token::EndStatement},
+
 	{{Token::Word, Token::Dot, Token::Word}, Token::PropertyAccessor},
 	{{Token::Dot, Token::Word}, Token::PropertyAccessor},
+	{{{Token::Word, Token::PropertyAccessor}, Token::Parenthesis}, Token::FunctionCall, Pattern::FromLeft, Token::Any, Token::SubStatement},
 	{{Token::Any, Token::Exp, Token::Any}, Token::Exponentiation},
 	{{Token::Any, TokenPattern({Token::Asterisks, Token::Slash}), Token::Any}, Token::MultiplicationOrDivision},
 	{{Token::Any, TokenPattern({Token::Backslash}), Token::Any}, Token::IntegerDivision},
@@ -142,16 +153,16 @@ vector<Pattern> patternRules = {
 	{{Token::Any, TokenPattern({Token::As}), Token::Any}, Token::AsClause},
 	{{Token::Any, TokenPattern({Token::Coma}), Token::Any}, Token::ComaList},
 
-	{{Token::Sub, Token::Word, Token::Parenthesis}, Token::SubStatement},
-	{{Token::Class, Token::Word}, Token::SubStatement},
-	{{Token::End, Token::Any}, Token::EndStatement},
 
-	{{Token::Word, Token::Any}, Token::MethodCall, Pattern::FromLeft, Token::Line},
-	{{Token::If, Token::Any, Token::Then, Token::Any}, Token::InlineIfStatement, Pattern::LineRule, Token::Any},
-	{{Token::If, Token::Any, Token::Then}, Token::IfStatement, Pattern::LineRule, Token::Token::Line},
+	{{Token::If, Token::Any, Token::Then, Token::Any}, Token::InlineIfStatement, Pattern::LineRule, Token::Any, {Token::IfStatement}},
+	{{Token::If, Token::Any, Token::Then}, Token::IfStatement, Pattern::LineRule, Token::Token::Any, {Token::InlineIfStatement}},
 	{{Token::Elif, Token::Any, Token::Then}, Token::ElIfStatement, Pattern::FromLeft, Token::Line},
 	{{Token::Else}, Token::ElseStatement, Pattern::FromLeft, Token::Line},
-	{{accessSpecifierTokens, Token::Any}, Token::AccessSpecifier },
+	{{accessSpecifierTokens, Token::Any}, Token::AccessSpecifier},
+	{{{Token::Word, Token::MemberAccessor}, Token::Any}, Token::MethodCall, Pattern::FromLeft, Token::Line},
+	{{Token::Call, Token::Any}, Token::CallStatement},
+	{{Token::Dim, {Token::ComaList, Token::AsClause, Token::Word}}, Token::DimStatement},
+	{{Token::Option, Token::Any}, Token::OptionStatement},
 };
 
 static class InitClass {
@@ -185,9 +196,10 @@ void Group::groupBraces(size_t start) {
 		return;
 	}
 	auto it = begin() + start;
-	auto endString = "";
-	if (*it == "(") {
-		endString = ")";
+//	auto endString = "";
+	auto endToken = Token::None;
+	if (it->type() == Token::LeftParenthesis) {
+		endToken = Token::RightParenthesis;
 		++it;
 	}
 	for (; it != end(); ++it) {
@@ -195,7 +207,7 @@ void Group::groupBraces(size_t start) {
 		if (it->token == "(") {
 			groupBraces(it - begin()); //Find inner paranthesis
 		}
-		else if (it->token == endString) {
+		else if (it->type() != Token::None && it->type() == endToken) {
 			group(start, it - begin() + 1, true, Token::Parenthesis);
 			return;
 		}
@@ -263,6 +275,7 @@ void Group::groupLines() {
 }
 
 void Group::groupBlocks(size_t b) {
+	//Todo: This function needs to be optimized for performance
 	const map<Token::Type, Token::Type> blockNames {
 			{Token::Class, Token::End},
 			{Token::If, Token::End},
@@ -271,6 +284,7 @@ void Group::groupBlocks(size_t b) {
 			{Token::Sub, Token::End},
 			{Token::Function, Token::End},
 			{Token::Begin, Token::End},
+			{Token::With, Token::End},
 //			"else",
 //			"elseif",
 	};
@@ -363,8 +377,6 @@ void Group::groupPatterns() {
 				}
 			}
 			else if (pattern.options == Pattern::FromRight) {
-				//Do this
-
 				for (int i = - pattern.size() + size(); i >= 0; --i) {
 					if (pattern.isMatch(i, *this)) {
 						group(i, i + pattern.size(), false, pattern.result);

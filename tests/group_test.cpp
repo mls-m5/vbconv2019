@@ -99,9 +99,14 @@ TEST_CASE("property accessor") {
 	ASSERT_EQ(f.tokens.front().type(), Token::PropertyAccessor);
 }
 
+TEST_CASE("function call") {
+	TestFile f("x.y( z )");
+	f.tokens.printRecursive(cout, 0);
+}
+
 TEST_CASE("file load test") {
 	File f("Ship.cls");
-//	f.tokens.printRecursive(cout, 0);
+	f.tokens.printRecursive(cout, 0);
 }
 
 
