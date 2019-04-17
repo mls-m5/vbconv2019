@@ -190,11 +190,12 @@ vector<Pattern> patternRules = {
 	{{Token::Sub, Token::Word, Token::Parenthesis}, Token::SubStatement},
 	{{Token::Class, Token::Word}, Token::SubStatement},
 	{{Token::End, Token::Any}, Token::EndStatement},
+	{{Token::Next, Token::Any}, Token::NextStatement},
 
 	{{Token::Word, typeCharacters}, Token::TypeCharacterClause},
 //	{{Token::Word, Token::Dot, Token::Word}, Token::PropertyAccessor, Pattern::FromRight},
 	{{Token::Dot, Token::Word}, Token::PropertyAccessor, Pattern::FromRight},
-	{{{Token::Word, Token::PropertyAccessor, Token::FunctionCallOrPropertyAccessor}, {Token::Parenthesis, Token::PropertyAccessor}}, Token::FunctionCallOrPropertyAccessor, Pattern::FromRight, Token::Any, Token::SubStatement},
+	{{{Token::Word, Token::PropertyAccessor, Token::FunctionCallOrPropertyAccessor}, {Token::Parenthesis, Token::PropertyAccessor}}, Token::FunctionCallOrPropertyAccessor, Pattern::FromLeft, Token::Any, Token::SubStatement},
 	{{Token::With, {Token::Word, Token::MemberAccessor, Token::FunctionCallOrPropertyAccessor}}, Token::WithStatement},
 
 	Pattern({{{Token::Plus, Token::Minus}, {negatable}}, Token::UnaryIdentityOrNegation, Pattern::FromRight, Token::Any, Token::None, [] (Pattern &p, int index, Group &g) {
@@ -215,11 +216,16 @@ vector<Pattern> patternRules = {
 		return true;
 	}}),
 
+	{{Token::Any, Token::As, Token::Any}, Token::AsClause},
+	{{Token::AsClause, Token::Equal, Token::Any}, Token::DefaultAsClause},
+	{{{Token::ByRef, Token::ByVal}, Token::Any}, Token::RefTypeStatement},
+	{{Token::Optional, Token::Any}, Token::OptionalStatement},
+
 	{{Token::Any, Token::Exp, Token::Any}, Token::Exponentiation},
 	{{Token::Any, TokenPattern({Token::Asterisks, Token::Slash}), Token::Any}, Token::MultiplicationOrDivision},
 	{{Token::Any, TokenPattern({Token::Backslash}), Token::Any}, Token::IntegerDivision},
 	{{Token::Any, TokenPattern({Token::Plus, Token::Minus}), Token::Any}, Token::AdditionOrSubtraction},
-	{{Token::Any, comparisonTokens, Token::Any}, Token::ComparisonOperation, Pattern::FromRight, Token::Any, Token::None, [] (Pattern &p, int index, Group &g) {
+	{{Token::Any, comparisonTokens, Token::Any}, Token::ComparisonOperation, Pattern::FromRight, Token::Any, Token::DefaultAsClause, [] (Pattern &p, int index, Group &g) {
 		if (g[index + 1].type() == Token::Equal) {
 			if (index == 0 && (g.type() == Token::Root || g.type() == Token::Line || Token::Assignment)) {
 				return false; //This is a assignment
@@ -235,21 +241,29 @@ vector<Pattern> patternRules = {
 	{{Token::Any, {Token::Or, Token::OrElse}, Token::Any}, Token::InclusiveDisjunction},
 	{{Token::Any, {Token::Xor}, Token::Any}, Token::ExclusiveDisjunction},
 	{{Token::Set, Token::Any, Token::Equal, Token::Any}, Token::SetStatement, Pattern::LineRule, Token::Any, Token::ComparisonOperation},
-	{{Token::Any, Token::Equal, Token::Any}, Token::Assignment, Pattern::LineRule, Token::Any, {Token::ComparisonOperation, Token::SetStatement}},
+	{{Token::Any, Token::Equal, Token::Any}, Token::Assignment, Pattern::LineRule, Token::Any, {Token::ComparisonOperation, Token::SetStatement, Token::DefaultAsClause}},
 
 
-	{{Token::Any, TokenPattern({Token::As}), Token::Any}, Token::AsClause},
-	{{Token::Any, TokenPattern({Token::Coma}), Token::Any}, Token::ComaList},
+
+	{{{Token::Comma, Token::DoubleComma}, {Token::Comma}}, Token::DoubleComma, Pattern::FromLeft, Token::Any, Token::DoubleComma},
+	{{Token::Any, {Token::Comma, Token::DoubleComma}, Token::Any}, Token::CommaList, Pattern::FromLeft, Token::Any, Token::DoubleComma},
+//	Pattern({{TokenPattern({Token::Any}, {Token::Comma}), Token::Comma, TokenPattern({Token::Any}, {Token::Comma})}}, Token::CommaList),
+//	{{Token::CommaList, Token::Comma}, Token::CommaList, Pattern::FromLeft, Token::Any, Token::CommaList},
+//	{{Token::Comma, Token::CommaList}, Token::CommaList, Pattern::FromLeft, Token::Any, Token::CommaList},
+//	{{Token::CommaList, Token::CommaList}, Token::CommaList, Pattern::FromLeft, Token::Any, Token::CommaList},
+
 
 
 	{{Token::If, Token::Any, Token::Then, Token::Any}, Token::InlineIfStatement, Pattern::LineRule, Token::Any, {Token::IfStatement}},
 	{{Token::If, Token::Any, Token::Then}, Token::IfStatement, Pattern::LineRule, Token::Token::Any, {Token::InlineIfStatement}},
-	{{Token::Elif, Token::Any, Token::Then}, Token::ElIfStatement, Pattern::FromLeft, Token::Line},
+	{{Token::Elseif, Token::Any, Token::Then}, Token::ElseIfStatement, Pattern::FromLeft, Token::Line},
 	{{Token::Else}, Token::ElseStatement, Pattern::FromLeft, Token::Line},
+	{{Token::For, Token::Any, Token::To, Token::Any, Token::Step, Token::Any}, Token::ForLoop, Pattern::LineRule, Token::Any, {Token::ForLoop}},
+	{{Token::For, Token::Any, Token::To, Token::Any}, Token::ForLoop, Pattern::LineRule, Token::Any, {Token::ForLoop}},
 	{{accessSpecifierTokens, Token::Any}, Token::AccessSpecifier},
-	{{{Token::Word, Token::MemberAccessor}, Token::Any}, Token::MethodCall, Pattern::FromLeft, {Token::Line, Token::Root}},
+	{{{Token::Word, Token::MemberAccessor, Token::FunctionCallOrPropertyAccessor}, Token::Any}, Token::MethodCall, Pattern::FromLeft, {Token::Line, Token::Root}},
 	{{Token::Call, Token::Any}, Token::CallStatement},
-	{{Token::Dim, {Token::ComaList, Token::AsClause, Token::Word, Token::TypeCharacterClause}}, Token::DimStatement},
+	{{Token::Dim, {Token::CommaList, Token::AsClause, Token::DefaultAsClause, Token::Word, Token::TypeCharacterClause}}, Token::DimStatement},
 	{{Token::Option, Token::Any}, Token::OptionStatement},
 };
 
@@ -258,7 +272,9 @@ public:
 	InitClass() {
 		for (auto &kw: keywordNames) {
 			typeNames[kw.first] = kw.second;
-			kw.second[0] = tolower(kw.second[0]);
+			for (auto &c: kw.second) {
+				c = tolower(c);
+			}
 		}
 	}
 } initClass;

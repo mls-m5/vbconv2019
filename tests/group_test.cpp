@@ -34,7 +34,7 @@ class test
 	Public sub move (x as single, y as single, z as long)
 		if x > y then
 			print "Hej"
-		elif y > z then
+		elseif y > z then
 			print "da"
 		else
 			print "re"
@@ -85,9 +85,38 @@ TEST_CASE("property accessor") {
 	ASSERT_EQ(f.tokens.front().type(), Token::FunctionCallOrPropertyAccessor);
 }
 
+TEST_CASE("empty Comma list") {
+	TestFile f("x 10, , , , 4");
+	ASSERT_EQ(f.tokens.size(), 1);
+	ASSERT_EQ(f.tokens.front().type(), Token::MethodCall);
+}
+
+TEST_CASE("byref test") {
+	TestFile f("Sub main (Byref y)");
+	ASSERT_EQ(f.tokens.size(), 1);
+}
+
 TEST_CASE("mixed members and function") {
 	TestFile f("x = Ammo / Weapons.Weapons(WeaponSelected).Ammo");
 	ASSERT_EQ(f.tokens.size(), 1);
+}
+
+TEST_CASE("optional byval") {
+	TestFile f("optional byval x as string");
+	ASSERT_EQ(f.tokens.size(), 1);
+}
+
+TEST_CASE("for loop") {
+	{
+		TestFile f("for i as single = 0 to 10");
+		ASSERT_EQ(f.tokens.size(), 1);
+		ASSERT_EQ(f.tokens.front().type(), Token::ForLoop);
+	}
+	{
+		TestFile f("for i as single = 0 to 10 step 2");
+		ASSERT_EQ(f.tokens.size(), 1);
+		ASSERT_EQ(f.tokens.front().type(), Token::ForLoop);
+	}
 }
 
 TEST_CASE("function call") {
@@ -98,6 +127,14 @@ TEST_CASE("function call") {
 
 TEST_CASE("set operation") {
 	TestFile  f("set x = y");
+	ASSERT_EQ(f.tokens.size(), 1);
+	ASSERT_EQ(f.tokens.front().type(), Token::SetStatement);
+}
+
+TEST_CASE("default as clause") {
+	TestFile f("x as long = 1");
+	ASSERT_EQ(f.tokens.size(), 1);
+	ASSERT_EQ(f.tokens.front().type(), Token::DefaultAsClause);
 }
 
 TEST_CASE("negation") {
@@ -142,7 +179,7 @@ TEST_CASE("comment after declaration") {
 	ASSERT_EQ(f.tokens.front().type(), Token::DimStatement);
 }
 
-TEST_CASE("Coma list") {
+TEST_CASE("Comma list") {
 	TestFile f("1, 2, 3");
 	ASSERT_EQ(f.tokens.size(), 1);
 }
