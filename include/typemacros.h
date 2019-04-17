@@ -15,6 +15,7 @@
 
 // Types that is not associated to keywords:
 ts(Literal)
+ts(Root)
 ts(Numeric)
 ts(Operator)
 ts(BinaryOperator)
@@ -34,8 +35,8 @@ ts(MemberAccessor)
 
 // Binary operations in falling precedence
 // https://docs.microsoft.com/en-us/dotnet/visual-basic/language-reference/operators/operator-precedence
-ts(Exponentiation)
-ts(UnaryIdentityOrNegation) // ^
+ts(Exponentiation) // ^
+ts(UnaryIdentityOrNegation) // +, - (prefix)
 ts(MultiplicationOrDivision) // *, /
 ts(IntegerDivision) // \ .
 ts(ModulusOperation) // Mod
@@ -43,7 +44,7 @@ ts(AdditionOrSubtraction) // +, -
 ts(StringConcatenation) // &
 ts(ArithmeticBitShift) // <<, >>
 ts(ComparisonOperation) // =, <>, <, <=, >, >=, Is, IsNot, Like, TypeOf
-ts(Negation) // Not
+ts(LogicalNegation) // Not
 ts(Conjunction) // And, AndAlso
 ts(InclusiveDisjunction) // Or, OrElse
 ts(ExclusiveDisjunction) // Xor
@@ -59,10 +60,12 @@ ts(InlineIfStatement)
 ts(ElIfStatement)
 ts(ElseStatement)
 ts(WithStatement)
-ts(FunctionCall)
+ts(FunctionCallOrPropertyAccessor)
 ts(CallStatement)
 ts(DimStatement)
 ts(OptionStatement)
+ts(Assignment)
+ts(SetStatement)
 
 ts(MethodCall)
 
@@ -125,29 +128,34 @@ tn(Default)
 tn(Option)
 tn(Of)
 
-
-tn(Not)
-tn(And)
-tn(Or)
-tn(Xor)
-tn(Mod)
-tl(Coma, ",")
-tl(Dot, ".")
-tl(Asterisks, "*")
-tl(Slash, "/")
 tl(Percentage, "%")
 tl(Hash, "#")
 tl(Exclamation, "!")
 tl(At, "@")
 tl(Et, "&")
 tl(Dollar, "$")
+tl(SingleQuote, "'")
+tl(LeftParenthesis, "(")
+tl(RightParenthesis, ")")
+tn(TypeOf)
+
+td(BinaryOperatorsBegin)
+
+tn(Not)
+tn(And)
+tn(AndAlso)
+tn(Or)
+tn(OrElse)
+tn(Xor)
+tn(Mod)
+tl(Coma, ",")
+tl(Dot, ".")
+tl(Asterisks, "*")
+tl(Slash, "/")
 tl(Backslash, "\\")
 tl(Plus, "+")
 tl(Minus, "-")
 tl(Exp, "^")
-tl(SingleQuote, "'")
-tl(LeftParenthesis, "(")
-tl(RightParenthesis, ")")
 
 //Comparisons
 tl(Equal, "=")
@@ -160,5 +168,4 @@ tn(Is)
 tn(IsNot)
 tn(Like)
 
-tn(TypeOf)
-
+td(BinaryOperatorsEnd)

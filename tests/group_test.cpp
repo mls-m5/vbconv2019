@@ -19,6 +19,7 @@ public:
 	TestFile(string code) {
 		stringstream ss(code);
 		load(ss, "test");
+		tokens.printRecursive(cout);
 	}
 };
 
@@ -56,18 +57,14 @@ TEST_SUIT_BEGIN
 TEST_CASE("test") {
 	TestFile f(testCode1);
 
-	f.tokens.printRecursive(cout, 0);
+//	f.tokens.printRecursive(cout, 0);
 }
 
 
 TEST_CASE("binary expression") {
-	stringstream ss("test + x * y ^ 2 + 6");
-	File f;
-	f.load(ss, "test");
+	TestFile f("x = test + x * y ^ 2 + 6");
 
-	cout << "result: " << endl;
-	f.tokens.printRecursive(cout);
-	ASSERT_EQ(f.tokens.front().type(), Token::AdditionOrSubtraction);
+	ASSERT_EQ(f.tokens.front().type(), Token::Assignment);
 	ASSERT_EQ(f.tokens.size(), 1);
 }
 
@@ -75,7 +72,7 @@ TEST_CASE("binary expression") {
 TEST_CASE("type characters") {
 	TestFile f("x!");
 
-	f.tokens.printRecursive(cout);
+//	f.tokens.printRecursive(cout);
 	ASSERT_EQ(f.tokens.front().type(), Token::TypeCharacterClause);
 }
 
@@ -83,26 +80,75 @@ TEST_CASE("type characters") {
 TEST_CASE("property accessor") {
 	TestFile f("apa.bepa");
 
-	f.tokens.printRecursive(cout);
+//	f.tokens.printRecursive(cout);
 
-	ASSERT_EQ(f.tokens.front().type(), Token::PropertyAccessor);
+	ASSERT_EQ(f.tokens.front().type(), Token::FunctionCallOrPropertyAccessor);
 }
 
+TEST_CASE("mixed members and function") {
+	TestFile f("x = Ammo / Weapons.Weapons(WeaponSelected).Ammo");
+	ASSERT_EQ(f.tokens.size(), 1);
+}
 
 TEST_CASE("function call") {
 	TestFile f("x.y( z )");
-	f.tokens.printRecursive(cout, 0);
+//	f.tokens.printRecursive(cout, 0);
+	ASSERT_EQ(f.tokens.size(), 1);
+}
+
+TEST_CASE("set operation") {
+	TestFile  f("set x = y");
+}
+
+TEST_CASE("negation") {
+	{
+		TestFile f("x = -1");
+		ASSERT_EQ(f.tokens.size(), 1);
+		ASSERT_EQ(f.tokens.front().type(), Token::Assignment);
+		ASSERT_EQ(f.tokens.front().back().type(), Token::UnaryIdentityOrNegation);
+	}
+
+	{
+		TestFile f("x = 1 + - 1");
+		ASSERT_EQ(f.tokens.size(), 1);
+		ASSERT_EQ(f.tokens.front().type(), Token::Assignment);
+		ASSERT_EQ(f.tokens.front().back().type(), Token::AdditionOrSubtraction);
+	}
+
+	{
+		TestFile f("x = 2 - 1 / 2");
+		ASSERT_EQ(f.tokens.size(), 1);
+		ASSERT_EQ(f.tokens.front().type(), Token::Assignment);
+		ASSERT_EQ(f.tokens.front().back().type(), Token::AdditionOrSubtraction);
+	}
+
+	{
+		TestFile f("PrintInt - 1");
+		ASSERT_EQ(f.tokens.size(), 1);
+		ASSERT_EQ(f.tokens.front().type(), Token::MethodCall);
+		ASSERT_EQ(f.tokens.front()[1].type(), Token::UnaryIdentityOrNegation);
+	}
+}
+
+TEST_CASE("logical operators") {
+	TestFile f("x = y and z or w xor b");
+	ASSERT_EQ(f.tokens.size(), 1);
+}
+
+TEST_CASE("comment after declaration") {
+	TestFile f("Dim x! 'This is a comment");
+
+	ASSERT_EQ(f.tokens.size(), 1);
+	ASSERT_EQ(f.tokens.front().type(), Token::DimStatement);
 }
 
 TEST_CASE("Coma list") {
 	TestFile f("1, 2, 3");
-	f.tokens.printRecursive(cout);
 	ASSERT_EQ(f.tokens.size(), 1);
 }
 
 TEST_CASE("Public variable list") {
 	TestFile f("Public XPos#, YPos#, Angle!");
-	f.tokens.printRecursive(cout);
 	ASSERT_EQ(f.tokens.size(), 1);
 }
 

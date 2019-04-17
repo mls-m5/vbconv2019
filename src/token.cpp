@@ -11,6 +11,7 @@
 #include <iostream>
 #include <sstream>
 #include <map>
+#include <functional>
 
 using namespace std;
 
@@ -54,13 +55,21 @@ static map<Token::Type, string> keywordNames = {
 
 
 struct TokenPattern {
-	TokenPattern(vector<Token::Type> t): types(t) {}
-	TokenPattern(initializer_list<Token::Type> t): types(vector<Token::Type>(t)) {}
+	TokenPattern(vector<Token::Type> t, vector<Token::Type> e = {}): types(t), excludes(e) {}
+	TokenPattern(initializer_list<Token::Type> t, initializer_list<Token::Type> e = {}):
+		types(vector<Token::Type>(t)),
+		excludes(vector<Token::Type>(e)) {}
 	TokenPattern(Token::Type t): types({t}) {}
 
 	bool operator == (Token::Type t) {
 		if (types.front() == Token::Any) {
 			return true;
+		}
+
+		for (auto &type: excludes) {
+			if (type == t) {
+				return false;
+			}
 		}
 
 		for (auto &type: types) {
@@ -77,6 +86,7 @@ struct TokenPattern {
 
 
 	vector<Token::Type> types;
+	vector<Token::Type> excludes; // Types to exclude
 };
 
 struct Pattern: public vector<TokenPattern> {
@@ -86,12 +96,21 @@ struct Pattern: public vector<TokenPattern> {
 		LineRule, //Only match beginning of line and group the whole line
 	} options;
 
-	Pattern(vector<TokenPattern> t, Token::Type result, Options options = FromLeft, TokenPattern parent = Token::Any, TokenPattern blacklistedParent = Token::None):
+	typedef std::function <bool (Pattern &, int, Group &)> CustomFunctionType;
+
+	Pattern(
+			vector<TokenPattern> t,
+			Token::Type result,
+			Options options = FromLeft,
+			TokenPattern parent = Token::Any,
+			TokenPattern blacklistedParent = Token::None,
+			CustomFunctionType customFunction = nullptr):
 		vector<TokenPattern>(t),
 		result(result),
 		options(options),
 		parentConstraint(parent),
-		blacklistedParent(blacklistedParent)
+		blacklistedParent(blacklistedParent),
+		customIsMatch(customFunction)
 		{}
 
 	bool isMatch(int index, Group &g) {
@@ -106,12 +125,23 @@ struct Pattern: public vector<TokenPattern> {
 		if (blacklistedParent == g.type()) {
 			return false;
 		}
+
+		if (customIsMatch) {
+			return customIsMatch(*this, index, g);
+		}
 		return true;
+	}
+
+	Pattern &customMatchFunction(CustomFunctionType &f) {
+		customIsMatch = f;
+		return *this;
 	}
 
 	Token::Type result = Token::Group;
 	TokenPattern parentConstraint; // If the parent needs to be a particular type
 	TokenPattern blacklistedParent = {Token::None}; //prevent two or more statements to create patterns from each other in infinity
+	CustomFunctionType customIsMatch;
+
 };
 
 
@@ -144,21 +174,68 @@ static TokenPattern typeCharacters = {
 		Token::Dollar,
 };
 
+// Possible tokens to put a - (or a single +) in front of
+static TokenPattern negatable = {
+		Token::Word,
+		Token::Parenthesis,
+		Token::UnaryIdentityOrNegation,
+		Token::Numeric
+};
+
+//static TokenPattern beforeNegatable = {{}, {
+//		Token::Word,
+//}};
+
 vector<Pattern> patternRules = {
 	{{Token::Sub, Token::Word, Token::Parenthesis}, Token::SubStatement},
-	{{Token::With, {Token::Word, Token::MemberAccessor}}, Token::WithStatement},
 	{{Token::Class, Token::Word}, Token::SubStatement},
 	{{Token::End, Token::Any}, Token::EndStatement},
 
 	{{Token::Word, typeCharacters}, Token::TypeCharacterClause},
-	{{Token::Word, Token::Dot, Token::Word}, Token::PropertyAccessor},
-	{{Token::Dot, Token::Word}, Token::PropertyAccessor},
-	{{{Token::Word, Token::PropertyAccessor}, Token::Parenthesis}, Token::FunctionCall, Pattern::FromLeft, Token::Any, Token::SubStatement},
+//	{{Token::Word, Token::Dot, Token::Word}, Token::PropertyAccessor, Pattern::FromRight},
+	{{Token::Dot, Token::Word}, Token::PropertyAccessor, Pattern::FromRight},
+	{{{Token::Word, Token::PropertyAccessor, Token::FunctionCallOrPropertyAccessor}, {Token::Parenthesis, Token::PropertyAccessor}}, Token::FunctionCallOrPropertyAccessor, Pattern::FromRight, Token::Any, Token::SubStatement},
+	{{Token::With, {Token::Word, Token::MemberAccessor, Token::FunctionCallOrPropertyAccessor}}, Token::WithStatement},
+
+	Pattern({{{Token::Plus, Token::Minus}, {negatable}}, Token::UnaryIdentityOrNegation, Pattern::FromRight, Token::Any, Token::None, [] (Pattern &p, int index, Group &g) {
+		if (index > 0) {
+			// Check so that the token before is not another operator
+			if (g.type() == Token::BlockBegin || g.type() == Token::Line || g.type() == Token::BlockEnd || g.type() == Token::Root) {
+				if (index == 1) {
+					// Special case
+					// For example "PrintNumber -1
+					return true;
+				}
+			}
+			auto typeBefore = g[index - 1].type();
+			return typeBefore > Token::BinaryOperatorsBegin && typeBefore < Token::BinaryOperatorsEnd;
+//			return beforeNegatable == typeBefore;
+
+		}
+		return true;
+	}}),
+
 	{{Token::Any, Token::Exp, Token::Any}, Token::Exponentiation},
 	{{Token::Any, TokenPattern({Token::Asterisks, Token::Slash}), Token::Any}, Token::MultiplicationOrDivision},
 	{{Token::Any, TokenPattern({Token::Backslash}), Token::Any}, Token::IntegerDivision},
 	{{Token::Any, TokenPattern({Token::Plus, Token::Minus}), Token::Any}, Token::AdditionOrSubtraction},
-	{{Token::Any, comparisonTokens, Token::Any}, Token::ComparisonOperation},
+	{{Token::Any, comparisonTokens, Token::Any}, Token::ComparisonOperation, Pattern::FromRight, Token::Any, Token::None, [] (Pattern &p, int index, Group &g) {
+		if (g[index + 1].type() == Token::Equal) {
+			if (index == 0 && (g.type() == Token::Root || g.type() == Token::Line || Token::Assignment)) {
+				return false; //This is a assignment
+			}
+			if (index == 1 && g[0].type() == Token::Set) {
+				return false; // This is a set operation. ie set x = object y
+			}
+		}
+		return true;
+	}},
+	{{Token::Not, Token::Any}, Token::LogicalNegation},
+	{{Token::Any, {Token::And, Token::AndAlso}, Token::Any}, Token::Conjunction},
+	{{Token::Any, {Token::Or, Token::OrElse}, Token::Any}, Token::InclusiveDisjunction},
+	{{Token::Any, {Token::Xor}, Token::Any}, Token::ExclusiveDisjunction},
+	{{Token::Set, Token::Any, Token::Equal, Token::Any}, Token::SetStatement, Pattern::LineRule, Token::Any, Token::ComparisonOperation},
+	{{Token::Any, Token::Equal, Token::Any}, Token::Assignment, Pattern::LineRule, Token::Any, {Token::ComparisonOperation, Token::SetStatement}},
 
 
 	{{Token::Any, TokenPattern({Token::As}), Token::Any}, Token::AsClause},
@@ -170,9 +247,9 @@ vector<Pattern> patternRules = {
 	{{Token::Elif, Token::Any, Token::Then}, Token::ElIfStatement, Pattern::FromLeft, Token::Line},
 	{{Token::Else}, Token::ElseStatement, Pattern::FromLeft, Token::Line},
 	{{accessSpecifierTokens, Token::Any}, Token::AccessSpecifier},
-	{{{Token::Word, Token::MemberAccessor}, Token::Any}, Token::MethodCall, Pattern::FromLeft, Token::Line},
+	{{{Token::Word, Token::MemberAccessor}, Token::Any}, Token::MethodCall, Pattern::FromLeft, {Token::Line, Token::Root}},
 	{{Token::Call, Token::Any}, Token::CallStatement},
-	{{Token::Dim, {Token::ComaList, Token::AsClause, Token::Word}}, Token::DimStatement},
+	{{Token::Dim, {Token::ComaList, Token::AsClause, Token::Word, Token::TypeCharacterClause}}, Token::DimStatement},
 	{{Token::Option, Token::Any}, Token::OptionStatement},
 };
 
@@ -376,9 +453,6 @@ void Group::groupPatterns() {
 			if (size() == pattern.size() && type() == pattern.result) {
 				// Ignore patterns with same result type and length (it has probably been matched already)
 			}
-			//		else if (size() > pattern.size()) {
-			//			// The pattern does not fit
-			//		}
 			else if (pattern.options == pattern.FromLeft) {
 				//Skip to match the first element if the pattern is the same type as this
 				for (int i = (type() == pattern.result); i + pattern.size() < size() + 1; ++i) {
@@ -411,6 +485,19 @@ void Group::groupPatterns() {
 		c.groupPatterns();
 	}
 }
+
+//void Group::groupFunctionAndPropertyAccessors() {
+//	if (size() < 2) {
+//		return;
+//	}
+//
+////	for ()
+//
+//	for (int i = 0; i < children.size(); ++i) {
+//		auto &c = children[i];
+//		c.groupFunctionAndPropertyAccessors();
+//	}
+//}
 
 void Group::verify() {
 	for (auto &t: children) {

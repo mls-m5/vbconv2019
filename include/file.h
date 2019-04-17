@@ -17,11 +17,15 @@ class File {
 	public:
 	typedef std::string string;
 
-	File() {}
+	File() {
+		tokens.type(Token::Root);
+	}
 	File(const string &filename) {
+		tokens.type(Token::Root);
 		load(filename);
 	}
 	File(std::istream &stream, const string &nfilename) {
+		tokens.type(Token::Root);
 		load(stream, nfilename);
 	}
 

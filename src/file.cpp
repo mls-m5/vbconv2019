@@ -46,6 +46,7 @@ void File::load(std::istream &file, const string &nfilename) {
 	groupHeader();
 //	tokens.printRecursive(cout, 0);
 	tokens.groupBlocks(0);
+//	tokens.groupFunctionAndPropertyAccessors();
 //	tokens.printRecursive(cout, 0);
 	tokens.groupPatterns();
 	tokens.verify();
