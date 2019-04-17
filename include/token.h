@@ -264,9 +264,6 @@ public:
 	// Recursiely group blocks like if,.. endif etc
 	void groupBlocks(size_t begin);
 
-//	// Group expressions like f (x) and f.x
-//	void groupFunctionAndPropertyAccessors();
-
 	//Do the more advanced pattern matching
 	void groupPatterns();
 

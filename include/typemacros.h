@@ -31,7 +31,7 @@ ts(FunctionBlock)
 ts(Heading)
 
 ts(PropertyAccessor)
-ts(MemberAccessor)
+//ts(MemberAccessor)
 
 // Binary operations in falling precedence
 // https://docs.microsoft.com/en-us/dotnet/visual-basic/language-reference/operators/operator-precedence
@@ -48,11 +48,12 @@ ts(LogicalNegation) // Not
 ts(Conjunction) // And, AndAlso
 ts(InclusiveDisjunction) // Or, OrElse
 ts(ExclusiveDisjunction) // Xor
+ts(FunctionCallOrPropertyAccessor)
+ts(CommaList)
 
 ts(AsClause)
 ts(DefaultAsClause)
 ts(TypeCharacterClause)
-ts(CommaList)
 ts(DoubleComma)
 ts(SubStatement)
 ts(EndStatement)
@@ -64,13 +65,12 @@ ts(ElseStatement)
 ts(ForLoop)
 ts(NextStatement)
 ts(WithStatement)
-ts(FunctionCallOrPropertyAccessor)
 ts(CallStatement)
 ts(DimStatement)
 ts(OptionStatement)
 ts(Assignment)
 ts(SetStatement)
-ts(ArgumentRefStatement)
+//ts(ArgumentRefStatement)
 ts(RefTypeStatement)
 ts(OptionalStatement)
 

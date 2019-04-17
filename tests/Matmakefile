@@ -1,8 +1,11 @@
 
-flags += -I../include -ggdb -D_GLIBCXX_DEBUG -O0
+flags += -I../include -I../src/ -ggdb -D_GLIBCXX_DEBUG -O0
 src = ../src/token.cpp ../src/file.cpp
 dir = bin/bin/
 
 group_test.exe = %
 group_test.src += group_test.cpp
 group_test.copy += Ship.cls
+
+basic_element_test.exe = %
+basic_element_test.src = basic_element_test.cpp

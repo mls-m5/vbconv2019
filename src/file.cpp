@@ -151,7 +151,7 @@ void File::tokenize() {
 				token.trailingSpace += get();
 			}
 		}
-		else if (token.empty() && ((isdigit(c)) || (c == '.' && peek() == isdigit(c)))) {
+		else if ((isdigit(c)) || (c == '.' && peek() == isdigit(c))) {
 			bool decimalPoint = (c == '.');
 			if (!token.empty()) {
 				newWord();
@@ -165,6 +165,10 @@ void File::tokenize() {
 				}
 				token += get();
 				p = peek();
+			}
+			appendSpaces();
+			if (!token.empty()) {
+				newWord();
 			}
 		}
 		else if (c == '"') {
@@ -206,6 +210,9 @@ void File::tokenize() {
 				newWord();
 			}
 			token += c;
+			if (isdigit(peek())) {
+				token += get(); //Words can contain numbers
+			}
 		}
 		c = get();
 	}

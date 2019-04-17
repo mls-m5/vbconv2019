@@ -9,8 +9,8 @@ using namespace vbconv;
 int main(int argc, char **argv) {
 	cout << "Hello" << endl;
 	
-//	File file("originals/SD/Ship.cls");
-	File file("test.cls");
+	File file("originals/SD/Ship.cls");
+//	File file("test.cls");
 
 	auto &groups = file.tokens;
 	for (int i = 0; i < groups.size(); ++i) {
