@@ -17,7 +17,7 @@ void File::load(const string &nfilename) {
 	ifstream file(nfilename);
 
 	if (!file.is_open()) {
-		throw "could not open file";
+		throw runtime_error("could not open file " + nfilename);
 	}
 
 	file.seekg(0, std::ios::end);
@@ -94,7 +94,7 @@ void File::tokenize() {
 	};
 
 	auto isspecial = [&] (char c) {
-		const string chars("+-*/=\".'()[]{}\\,!#");
+		const string chars("+-*/=\".'()[]{}\\,!#*^&<>");
 		return chars.find(c) != string::npos;
 	};
 

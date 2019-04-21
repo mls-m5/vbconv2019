@@ -175,30 +175,44 @@ TEST_CASE("negation") {
 
 TEST_CASE("logical operators") {
 	TestFile f("x = y and z or w xor b");
-	ASSERT_EQ(f.tokens.size(), 1);
+	ASSERT_EQ(f.tokens.front().size(), 1);
 }
 
 TEST_CASE("comment after declaration") {
 	TestFile f("Dim x! 'This is a comment");
 
-	ASSERT_EQ(f.tokens.size(), 1);
+	ASSERT_EQ(f.tokens.front().size(), 1);
 	ASSERT_EQ(f.tokens.front().front().type(), Token::DimStatement);
 }
 
 TEST_CASE("Comma list") {
 	TestFile f("1, 2, 3");
-	ASSERT_EQ(f.tokens.size(), 1);
+	ASSERT_EQ(f.tokens.front().size(), 1);
 }
 
 TEST_CASE("Public variable list") {
 	TestFile f("Public XPos#, YPos#, Angle!");
-	ASSERT_EQ(f.tokens.size(), 1);
+	ASSERT_EQ(f.tokens.front().size(), 1);
+}
+
+TEST_CASE("open statement") {
+	TestFile f("Open \"skepp\" & FileName & \".ship\" For Binary As #1");
+	ASSERT_EQ(f.tokens.front().size(), 1);
 }
 
 TEST_CASE("z - file load test") {
 	try {
 		File f("Ship.cls");
-//		f.tokens.printRecursive(cout, 0);
+	}
+	catch (VerificationError &e) {
+		cout << e.what() << endl;
+		ERROR("verification failed");
+	}
+}
+
+TEST_CASE("x - file load test 2") {
+	try {
+		File f("frmEdit.frm");
 	}
 	catch (VerificationError &e) {
 		cout << e.what() << endl;

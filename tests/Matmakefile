@@ -5,7 +5,7 @@ dir = bin/bin/
 
 group_test.exe = %
 group_test.src += group_test.cpp
-group_test.copy += Ship.cls
+group_test.copy += Ship.cls frmEdit.cls
 
 basic_element_test.exe = %
 basic_element_test.src = basic_element_test.cpp

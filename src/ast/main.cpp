@@ -10,6 +10,7 @@ int main(int argc, char **argv) {
 	cout << "Hello" << endl;
 	
 	File file("originals/SD/Ship.cls");
+//	File file("originals/SD/frmEdit.frm");
 //	File file("test.cls");
 
 	auto &groups = file.tokens;

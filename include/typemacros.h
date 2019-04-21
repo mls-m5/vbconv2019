@@ -67,12 +67,16 @@ ts(NextStatement)
 ts(WithStatement)
 ts(CallStatement)
 ts(DimStatement)
+ts(RedimStatement)
 ts(OptionStatement)
 ts(Assignment)
 ts(SetStatement)
-//ts(ArgumentRefStatement)
 ts(RefTypeStatement)
 ts(OptionalStatement)
+ts(NewStatement)
+ts(FileNumberStatement)
+ts(OpenStatement)
+ts(ExitStatement)
 
 ts(MethodCall)
 
@@ -114,6 +118,8 @@ tn(With)
 tn(To)
 tn(True)
 tn(False)
+tn(Open)
+tn(Binary)
 
 
 td(TypesBegin)
@@ -123,6 +129,7 @@ tn(Double)
 tn(Byte)
 tn(Integer)
 tn(Boolean)
+tn(String)
 td(TypesEnd)
 
 
@@ -136,12 +143,13 @@ tn(Enum)
 tn(Default)
 tn(Option)
 tn(Of)
+tn(Me)
+tn(Exit)
 
 tl(Percentage, "%")
 tl(Hash, "#")
 tl(Exclamation, "!")
 tl(At, "@")
-tl(Et, "&")
 tl(Dollar, "$")
 tl(SingleQuote, "'")
 tl(LeftParenthesis, "(")
@@ -150,6 +158,7 @@ tn(TypeOf)
 
 td(BinaryOperatorsBegin)
 
+tl(Et, "&")
 tn(Not)
 tn(And)
 tn(AndAlso)
@@ -166,6 +175,9 @@ tl(Plus, "+")
 tl(Minus, "-")
 tl(Exp, "^")
 
+tl(ShiftLeft, "<<")
+tl(ShiftRight, ">>")
+
 //Comparisons
 tl(Equal, "=")
 tl(NotEqual, "<>")
@@ -178,3 +190,6 @@ tn(IsNot)
 tn(Like)
 
 td(BinaryOperatorsEnd)
+
+
+ts(CVariableDeclaration)

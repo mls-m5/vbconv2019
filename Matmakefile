@@ -9,12 +9,16 @@ flags += -ggdb -D_GLIBCXX_DEBUG -O0
 
 ## Main target
 main.flags += -W -Wall -Wno-unused-parameter -Wno-sign-compare #-Werror
-main.src = src/*.cpp
-main.exe = program         # name of executable
+main.src = src/*.cpp src/ast/*.cpp
+main.exe = ast         # name of executable
 main.libs += # -lGL -lSDL  # libraries to add at link time
 # main.dir = bin/release   # set build path
 # main.objdir = bin/obj    # separates obj-files from build files
 # main.dll = lib           # use this instead of exe to create so/dll file
+
+cppgen.exe = %
+cppgen.flags += -W -Wall -Wno-unused-parameter -Wno-sign-compare #-Werror
+cppgen.src = src/*.cpp src/cppgenerator/*.cpp
 
 ## Debug target:
 # main_debug.inherit = main  # copy all settings from main

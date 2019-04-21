@@ -101,7 +101,23 @@ vector<Pattern> patternRules = {
 	{{Token::End, Token::Any}, Token::EndStatement},
 	{{Token::Next, Token::Any}, Token::NextStatement},
 
-	{{Token::Word, typeCharacters}, Token::TypeCharacterClause},
+	{{Token::New, Token::Word}, Token::NewStatement},
+	{{Token::Exit, Token::Any}, Token::ExitStatement},
+	{{Token::As, Token::Hash, {Token::Numeric, Token::Word}}, Token::FileNumberStatement},
+	{{Token::Hash, {Token::Numeric, Token::Word}}, Token::FileNumberStatement},
+	Pattern({{Token::Word, typeCharacters}, Token::TypeCharacterClause, Pattern::FromLeft, Token::Any, Token::None, [] (Pattern &p, int index, Group &g) {
+		//Prevent match on concatenated strings
+		if (index > 0) {
+			auto typeBefore = g[index - 1].type();
+			if (typeBefore == Token::Comma) {
+				return true;
+			}
+			if (typeBefore > Token::BinaryOperatorsBegin && typeBefore < Token::BinaryOperatorsEnd) {
+				return false;
+			}
+		}
+		return true;
+	}}),
 //	{{Token::Word, Token::Dot, Token::Word}, Token::PropertyAccessor, Pattern::FromRight},
 	{{Token::Dot, Token::Word}, Token::PropertyAccessor, Pattern::FromRight},
 	{{{Token::Word, Token::PropertyAccessor, Token::FunctionCallOrPropertyAccessor}, {Token::Parenthesis, Token::PropertyAccessor}}, Token::FunctionCallOrPropertyAccessor, Pattern::FromLeft, Token::Any, Token::SubStatement},
@@ -125,7 +141,7 @@ vector<Pattern> patternRules = {
 		return true;
 	}}),
 
-	{{Token::Any, Token::As, Token::Any}, Token::AsClause},
+	{{Token::Any, Token::As, TokenPattern({Token::Any}, {Token::FileNumberStatement})}, Token::AsClause},
 	{{Token::AsClause, Token::Equal, Token::Any}, Token::DefaultAsClause},
 	{{{Token::ByRef, Token::ByVal}, Token::Any}, Token::RefTypeStatement},
 	{{Token::Optional, Token::Any}, Token::OptionalStatement},
@@ -133,7 +149,10 @@ vector<Pattern> patternRules = {
 	{{Token::Any, Token::Exp, Token::Any}, Token::Exponentiation},
 	{{Token::Any, TokenPattern({Token::Asterisks, Token::Slash}), Token::Any}, Token::MultiplicationOrDivision},
 	{{Token::Any, TokenPattern({Token::Backslash}), Token::Any}, Token::IntegerDivision},
+	{{Token::Any, Token::Mod, Token::Any}, Token::ModulusOperation},
 	{{Token::Any, TokenPattern({Token::Plus, Token::Minus}), Token::Any}, Token::AdditionOrSubtraction},
+	{{Token::Any, Token::Et, Token::Any}, Token::StringConcatenation},
+	{{Token::Any, TokenPattern({Token::ShiftLeft, Token::ShiftRight}), Token::Any}, Token::ArithmeticBitShift},
 	{{Token::Any, comparisonTokens, Token::Any}, Token::ComparisonOperation, Pattern::FromRight, Token::Any, Token::DefaultAsClause, [] (Pattern &p, int index, Group &g) {
 		if (g[index + 1].type() == Token::Equal) {
 			if (index == 0 && (g.type() == Token::Root || g.type() == Token::Line || Token::Assignment)) {
@@ -156,21 +175,22 @@ vector<Pattern> patternRules = {
 	{{Token::Any, Token::Equal, Token::Any}, Token::Assignment, Pattern::FromLeft, Token::Any, {Token::ComparisonOperation, Token::SetStatement, Token::DefaultAsClause}},
 
 
-
 	{{{Token::Comma, Token::DoubleComma}, {Token::Comma}}, Token::DoubleComma, Pattern::FromLeft, Token::Any, Token::DoubleComma},
 	{{Token::Any, {Token::Comma, Token::DoubleComma}, Token::Any}, Token::CommaList, Pattern::FromLeft, Token::Any, Token::DoubleComma},
 
 
-	{{{Token::Word, Token::PropertyAccessor, Token::FunctionCallOrPropertyAccessor}, TokenPattern({Token::Any}, {Token::Then})}, Token::MethodCall, Pattern::FromLeft, {Token::Line, Token::Root, Token::InlineIfStatement}},
+	{{Token::Open, Token::Any, Token::For, Token::Any, Token::FileNumberStatement}, Token::OpenStatement, Pattern::LineRule, Token::Any, {Token::ForLoop}},
+	{{{Token::Word, Token::PropertyAccessor, Token::FunctionCallOrPropertyAccessor, Token::Get}, TokenPattern({Token::Any}, {Token::Then})}, Token::MethodCall, Pattern::FromLeft, {Token::Line, Token::Root, Token::InlineIfStatement}, {Token::OpenStatement}},
 	{{Token::If, Token::Any, Token::Then, Token::Any}, Token::InlineIfStatement, Pattern::LineRule, Token::Any, {Token::IfStatement}},
 	{{Token::If, Token::Any, Token::Then}, Token::IfStatement, Pattern::LineRule, Token::Token::Any, {Token::InlineIfStatement}},
 	{{Token::Elseif, Token::Any, Token::Then}, Token::ElseIfStatement, Pattern::FromLeft, Token::Line},
 	{{Token::Else}, Token::ElseStatement, Pattern::FromLeft, Token::Line},
-	{{Token::For, Token::Any, Token::To, Token::Any, Token::Step, Token::Any}, Token::ForLoop, Pattern::LineRule, Token::Any, {Token::ForLoop}},
-	{{Token::For, Token::Any, Token::To, Token::Any}, Token::ForLoop, Pattern::LineRule, Token::Any, {Token::ForLoop}},
+	{{Token::For, Token::Any, Token::To, Token::Any, Token::Step, Token::Any}, Token::ForLoop, Pattern::LineRule, Token::Any, {Token::ForLoop, Token::OpenStatement}},
+	{{Token::For, Token::Any, Token::To, Token::Any}, Token::ForLoop, Pattern::LineRule, Token::Any, {Token::ForLoop, Token::OpenStatement}},
 	{{accessSpecifierTokens, Token::Any}, Token::AccessSpecifier},
 	{{Token::Call, Token::Any}, Token::CallStatement},
 	{{Token::Dim, {Token::CommaList, Token::AsClause, Token::DefaultAsClause, Token::Word, Token::TypeCharacterClause}}, Token::DimStatement},
+	{{Token::Redim, Token::FunctionCallOrPropertyAccessor}, Token::RedimStatement},
 	{{Token::Option, Token::Any}, Token::OptionStatement},
 };
 
@@ -225,7 +245,7 @@ void Group::groupBraces(size_t start) {
 	}
 }
 
-string Group::spelling() {
+string Group::spelling() const {
 	ostringstream ss;
 	ss << token.spelling();
 	for (auto &c: children) {
@@ -235,7 +255,7 @@ string Group::spelling() {
 	return ss.str();
 }
 
-Token Group::concat() {
+Token Group::concat() const {
 	ostringstream ss;
 	Token ret = token; //Copy location
 	ss << token.spelling();
@@ -247,8 +267,9 @@ Token Group::concat() {
 	return ret;
 }
 
-Token Group::concatSmall() {
+Token Group::concatSmall() const {
 	ostringstream ss;
+	ostringstream ssCased;
 	Token ret = token;
 	if (!token.empty()) {
 		ss << (string) token << " ";
@@ -433,7 +454,7 @@ void Group::verify() {
 	}
 }
 
-string Group::typeString() {
+string Group::typeString() const {
 	try {
 		return typeNames.at(type());
 	}
@@ -479,6 +500,28 @@ VerificationError::VerificationError(Token t, string message) {
 	stringstream ss;
 	ss << t.location() << ":error " << message;
 	this->message = ss.str();
+}
+
+Group Group::flattenCommaList() const {
+	if (type() != Token::CommaList) {
+		throw VerificationError(token, " group is not a comma list");
+	}
+	Group ret;
+
+	const Group *p = this;
+
+	while (p->type() == Token::CommaList) {
+		ret.children.insert(ret.begin(), p->children[2]);
+		ret.children.insert(ret.begin(), p->children[1]);
+
+		p = &p->front();
+	}
+
+	ret.children.insert(ret.begin(), *p);
+
+	ret.type(Token::CommaList);
+
+	return ret;
 }
 
 }  // namespace name

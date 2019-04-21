@@ -48,7 +48,7 @@ public:
 	}
 
 	// How it was originally written
-	string spelling() {
+	string spelling() const {
 		if (cased.empty()) {
 			return leadingSpace + *((string*)this) + trailingSpace;
 		}
@@ -58,7 +58,7 @@ public:
 	}
 
 	// How it was written without whitespace
-	string wordSpelling() {
+	string wordSpelling() const {
 		if (cased.empty()) {
 			return *((string*)this);
 		}
@@ -84,6 +84,12 @@ public:
 		return false;
 	}
 
+	Token &assign(const string &str) {
+		toLower();
+
+		return *this;
+	}
+
 	Token() {};
 	Token(const Token &) = default;
 	Token(Token &&) = default;
@@ -102,18 +108,6 @@ public:
 		None = -1,
 		Word = 0,
 
-//		Literal,
-//		Numeric,
-//		Operator,
-//		BinaryOperator,
-//		BinaryExpression,
-//
-//		Parenthesis,
-//		Block,
-//		BlockBegin,
-//		BlockEnd,
-//		Line,
-//		Group,
 
 #include "typemacros.h"
 
@@ -161,6 +155,9 @@ public:
 	Group() = default;
 	Group(Group &&) = default;
 	Group(const Group &) = default;
+	Group(std::vector<Group> &&list): children(list) {
+		token.location() = children.front().location();
+	};
 
 	Group(Token &&t): token(t) {}
 	Group(const Token &t): token (t) {}
@@ -186,15 +183,23 @@ public:
 		return children.begin();
 	}
 
+	const auto begin() const {
+		return children.begin();
+	}
+
 	auto end() {
 		return children.end();
 	}
 
-	auto size() {
+	const auto end() const {
+		return children.end();
+	}
+
+	auto size() const {
 		return children.size();
 	}
 
-	auto empty() {
+	auto empty() const {
 		return children.empty();
 	}
 
@@ -202,7 +207,15 @@ public:
 		return children.front();
 	}
 
+	const auto &front() const {
+		return children.front();
+	}
+
 	auto &back() {
+		return children.back();
+	}
+
+	const auto &back() const {
 		return children.back();
 	}
 
@@ -210,7 +223,11 @@ public:
 		return children[i];
 	}
 
-	auto type() {
+	const Group &operator[] (size_t i) const {
+		return children[i];
+	}
+
+	auto type() const {
 		return token.type;
 	}
 
@@ -227,21 +244,69 @@ public:
 		children.push_back(Group(move(t)));
 	}
 
-	string spelling();
+	void push_back(Group &&g) {
+		children.push_back(std::move(g));
+	}
+
+	void push_back(const Group &g) {
+		children.push_back(g);
+	}
+
+	Group &assign(string str) {
+		token.assign(str);
+
+		return *this;
+	}
+
+	// Get the first token with the specified type
+	const Group *getByType(Token::Type type, bool recursive = true) const {
+		if (token.type == type) {
+			return this;
+		}
+		if (recursive) {
+			for (auto &c: children) {
+				if (auto t = c.getByType(type, true)) {
+					return t;
+				}
+			}
+		}
+		else {
+			for (auto &c: children) {
+				if (c.token.type == type) {
+					return &c;
+				}
+				if (c.endToken.type == type) {
+					return &c;
+				}
+			}
+		}
+		if (endToken.type == type) {
+			return this;
+		}
+		return nullptr;
+	}
+
+	Group *getByType(Token::Type type, bool recursive = true) {
+		// To not have to reimplement the above function
+		return const_cast<Group *>(const_cast<const Group*>(this)->getByType(type, recursive));
+	}
+
+
+	string spelling() const;
 
 	//Concatenate all tokens to one single token
-	Token concat();
-	Token concatSmall(); // Reduces all spaces to only one single space
+	Token concat() const;
+	Token concatSmall() const; // Reduces all spaces to only one single space
 
 	void printRecursive(std::ostream &stream, int depth = 0);
 
 	void setKeywords();
 
-	Token::Location location() {
+	Token::Location location() const {
 		return token.location();
 	}
 
-	string typeString();
+	string typeString() const;
 
 	bool lineEnding() {
 		if (!endToken.empty()) {
@@ -314,6 +379,8 @@ public:
 
 		children[b] = std::move(group);
 	}
+
+	Group flattenCommaList() const;
 
 	bool isDataType() {
 		return type() > Token::TypesBegin && type() < Token::TypesEnd;
