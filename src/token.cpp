@@ -95,33 +95,49 @@ static TokenPattern negatable = {
 //		Token::Word,
 //}};
 
-vector<Pattern> patternRules = {
+static vector<Pattern> patternRules = {
 	{{Token::Sub, Token::Word, Token::Parenthesis}, Token::SubStatement},
+	{{Token::Function, Token::Word, Token::Parenthesis, Token::As, Token::Any}, Token::FunctionStatement},
+	{{Token::Function, Token::Word, Token::Parenthesis}, Token::FunctionStatement},
 	{{Token::Class, Token::Word}, Token::SubStatement},
 	{{Token::End, Token::Any}, Token::EndStatement},
 	{{Token::Next, Token::Any}, Token::NextStatement},
+	{{Token::Attribute, Token::Any}, Token::AttributeStatement},
+	{{Token::Enum, Token::Word}, Token::EnumStatement},
 
 	{{Token::New, Token::Word}, Token::NewStatement},
 	{{Token::Exit, Token::Any}, Token::ExitStatement},
 	{{Token::As, Token::Hash, {Token::Numeric, Token::Word}}, Token::FileNumberStatement},
 	{{Token::Hash, {Token::Numeric, Token::Word}}, Token::FileNumberStatement},
+	{{Token::Declare, {Token::Function, Token::Sub}, Token::Word, Token::Lib, Token::Literal, Token::Parenthesis, Token::As, Token::Any}, Token::DeclareStatement},
+
 	Pattern({{Token::Word, typeCharacters}, Token::TypeCharacterClause, Pattern::FromLeft, Token::Any, Token::None, [] (Pattern &p, int index, Group &g) {
 		//Prevent match on concatenated strings
 		if (index > 0) {
 			auto typeBefore = g[index - 1].type();
 			if (typeBefore == Token::Comma) {
-				return true;
+//				return true; //True is possible but one more test must be made
 			}
-			if (typeBefore > Token::BinaryOperatorsBegin && typeBefore < Token::BinaryOperatorsEnd) {
+			else if (typeBefore > Token::BinaryOperatorsBegin && typeBefore < Token::BinaryOperatorsEnd) {
+				return false;
+			}
+		}
+		if (index + 2 < g.size()) {
+			//This prevents this rule to match if it actually is a stringconcatenation in a comma list
+			// eg DrawText 20, 10, Message & Message2
+			auto typeAfter = g[index + 2].type();
+			if (typeAfter != Token::Comma) {
 				return false;
 			}
 		}
 		return true;
 	}}),
-//	{{Token::Word, Token::Dot, Token::Word}, Token::PropertyAccessor, Pattern::FromRight},
-	{{Token::Dot, Token::Word}, Token::PropertyAccessor, Pattern::FromRight},
-	{{{Token::Word, Token::PropertyAccessor, Token::FunctionCallOrPropertyAccessor}, {Token::Parenthesis, Token::PropertyAccessor}}, Token::FunctionCallOrPropertyAccessor, Pattern::FromLeft, Token::Any, Token::SubStatement},
+	{{Token::Dot, {Token::Word, Token::Me}}, Token::PropertyAccessor},
+	{{{Token::Word, Token::PropertyAccessor, Token::FunctionCallOrPropertyAccessor, Token::Me}, {Token::Parenthesis, Token::PropertyAccessor}}, Token::FunctionCallOrPropertyAccessor, Pattern::FromLeft, Token::Any, Token::SubStatement},
 	{{Token::With, {Token::Word, Token::PropertyAccessor, Token::FunctionCallOrPropertyAccessor}}, Token::WithStatement},
+	{{Token::Select, Token::Case, Token::Any}, Token::SelectCaseStatement},
+	{{Token::TypeKeyword, Token::Any}, Token::TypeStatement},
+	{{Token::Case, Token::Any}, Token::CaseStatement, Pattern::FromLeft, Token::Any, Token::SelectCaseStatement},
 
 	Pattern({{{Token::Plus, Token::Minus}, {negatable}}, Token::UnaryIdentityOrNegation, Pattern::FromRight, Token::Any, Token::None, [] (Pattern &p, int index, Group &g) {
 		if (index > 0) {
@@ -164,6 +180,9 @@ vector<Pattern> patternRules = {
 			if (index > 2 && g[index - 1].type() == Token::Then) {
 				return false; //If assignment is after inline if statement
 			}
+			if (index > 1 && g[index - 1].type() == Token::Const) {
+				return false; // in const statements
+			}
 		}
 		return true;
 	}},
@@ -181,12 +200,15 @@ vector<Pattern> patternRules = {
 
 	{{Token::Open, Token::Any, Token::For, Token::Any, Token::FileNumberStatement}, Token::OpenStatement, Pattern::LineRule, Token::Any, {Token::ForLoop}},
 	{{{Token::Word, Token::PropertyAccessor, Token::FunctionCallOrPropertyAccessor, Token::Get}, TokenPattern({Token::Any}, {Token::Then})}, Token::MethodCall, Pattern::FromLeft, {Token::Line, Token::Root, Token::InlineIfStatement}, {Token::OpenStatement}},
-	{{Token::If, Token::Any, Token::Then, Token::Any}, Token::InlineIfStatement, Pattern::LineRule, Token::Any, {Token::IfStatement}},
+	{{Token::If, Token::Any, Token::Then, Token::Any, Token::Else, Token::Any}, Token::InlineIfElseStatement, Pattern::LineRule, Token::Any, {Token::IfStatement}},
+	{{Token::If, Token::Any, Token::Then, Token::Any}, Token::InlineIfStatement, Pattern::LineRule, Token::Any, {Token::IfStatement, Token::InlineIfElseStatement}},
 	{{Token::If, Token::Any, Token::Then}, Token::IfStatement, Pattern::LineRule, Token::Token::Any, {Token::InlineIfStatement}},
 	{{Token::Elseif, Token::Any, Token::Then}, Token::ElseIfStatement, Pattern::FromLeft, Token::Line},
-	{{Token::Else}, Token::ElseStatement, Pattern::FromLeft, Token::Line},
+//	{{Token::Else}, Token::ElseStatement, Pattern::FromLeft, Token::Line},
 	{{Token::For, Token::Any, Token::To, Token::Any, Token::Step, Token::Any}, Token::ForLoop, Pattern::LineRule, Token::Any, {Token::ForLoop, Token::OpenStatement}},
 	{{Token::For, Token::Any, Token::To, Token::Any}, Token::ForLoop, Pattern::LineRule, Token::Any, {Token::ForLoop, Token::OpenStatement}},
+	{{Token::Loop, Token::While, Token::Any}, Token::LoopWhileStatement},
+	{{Token::Const, Token::Any}, Token::ConstStatement},
 	{{accessSpecifierTokens, Token::Any}, Token::AccessSpecifier},
 	{{Token::Call, Token::Any}, Token::CallStatement},
 	{{Token::Dim, {Token::CommaList, Token::AsClause, Token::DefaultAsClause, Token::Word, Token::TypeCharacterClause}}, Token::DimStatement},
@@ -194,9 +216,9 @@ vector<Pattern> patternRules = {
 	{{Token::Option, Token::Any}, Token::OptionStatement},
 };
 
-static class InitClass {
+static class InitTokensClass {
 public:
-	InitClass() {
+	InitTokensClass() {
 		for (auto &kw: keywordNames) {
 			typeNames[kw.first] = kw.second;
 			for (auto &c: kw.second) {
@@ -322,8 +344,10 @@ void Group::groupBlocks(size_t b) {
 			{Token::Function, Token::End},
 			{Token::Begin, Token::End},
 			{Token::With, Token::End},
-//			"else",
-//			"elseif",
+			{Token::Do, Token::Loop},
+			{Token::Select, Token::End},
+			{Token::Enum, Token::End},
+			{Token::TypeKeyword, Token::End},
 	};
 
 	Token::Type endType = Token::None;
@@ -474,7 +498,7 @@ void Group::setKeywords() {
 	}
 }
 
-void Group::printRecursive(std::ostream &stream, int depth) {
+void Group::printRecursive(std::ostream &stream, int depth) const {
 	for (int i = 0; i < depth; ++i) stream << "    ";
 
 //	stream << location();

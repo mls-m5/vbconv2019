@@ -93,28 +93,34 @@ TEST_CASE("empty Comma list") {
 
 TEST_CASE("byref test") {
 	TestFile f("Sub main (Byref y)");
-	ASSERT_EQ(f.tokens.size(), 1);
+	ASSERT_EQ(f.tokens.front().size(), 1);
 }
 
 TEST_CASE("mixed members and function") {
 	TestFile f("x = Ammo / Weapons.Weapons(WeaponSelected).Ammo");
-	ASSERT_EQ(f.tokens.size(), 1);
+	ASSERT_EQ(f.tokens.front().size(), 1);
 }
 
 TEST_CASE("optional byval") {
 	TestFile f("optional byval x as string");
-	ASSERT_EQ(f.tokens.size(), 1);
+	ASSERT_EQ(f.tokens.front().size(), 1);
+}
+
+TEST_CASE("function") {
+	TestFile f("Public Function LoadLinePicture(Filename As String) As LinePicture");
+
+	TestFile("Public Function GetNames(Number As TheType)");
 }
 
 TEST_CASE("for loop") {
 	{
 		TestFile f("for i as single = 0 to 10");
-		ASSERT_EQ(f.tokens.size(), 1);
+		ASSERT_EQ(f.tokens.front().size(), 1);
 		ASSERT_EQ(f.tokens.front().front().type(), Token::ForLoop);
 	}
 	{
 		TestFile f("for i as single = 0 to 10 step 2");
-		ASSERT_EQ(f.tokens.size(), 1);
+		ASSERT_EQ(f.tokens.front().size(), 1);
 		ASSERT_EQ(f.tokens.front().front().type(), Token::ForLoop);
 	}
 }
@@ -138,9 +144,23 @@ TEST_CASE("default as clause") {
 }
 
 TEST_CASE("inline if statement not block") {
-	TestFile f("if x then print x \n print \"hej\"");
-	ASSERT_EQ(f.tokens.size(), 2);
+	{
+		TestFile f("if x then print x \n print \"hej\"");
+		ASSERT_EQ(f.tokens.size(), 2);
 		ASSERT_EQ(f.tokens.front().front().type(), Token::InlineIfStatement);
+	}
+
+	{
+		TestFile f("If Y > 0 Then Total = X + Y Else Total = X - Y");
+	}
+}
+
+TEST_CASE("string concatenation in argument list") {
+	TestFile f("DrawText 22, 22, Message & Text");
+}
+
+TEST_CASE("loop while") {
+	TestFile f("Loop While Timer < Length");
 }
 
 TEST_CASE("negation") {
@@ -187,6 +207,16 @@ TEST_CASE("comment after declaration") {
 
 TEST_CASE("Comma list") {
 	TestFile f("1, 2, 3");
+	ASSERT_EQ(f.tokens.front().size(), 1);
+}
+
+TEST_CASE("Declare statement") {
+	TestFile f("Public Declare Function GetAsyncKeyState Lib \"user32\" (ByVal vKey As Long) As Integer");
+	ASSERT_EQ(f.tokens.front().size(), 1);
+}
+
+TEST_CASE("access me properties") {
+	TestFile f("me.x");
 	ASSERT_EQ(f.tokens.front().size(), 1);
 }
 

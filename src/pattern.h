@@ -10,6 +10,7 @@
 #include <vector>
 #include <token.h>
 #include <functional>
+#include "token.h"
 
 namespace vbconv {
 

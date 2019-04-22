@@ -104,6 +104,7 @@ public:
 #define ts(t) t,
 
 	enum Type {
+		Remove = -3,
 		Any = -2,
 		None = -1,
 		Word = 0,
@@ -161,6 +162,7 @@ public:
 
 	Group(Token &&t): token(t) {}
 	Group(const Token &t): token (t) {}
+	Group(Token::Type t) { type(t); }
 
 	Group& operator=(const Group& t) = default;
 
@@ -213,6 +215,14 @@ public:
 
 	auto &back() {
 		return children.back();
+	}
+
+	auto &at(size_t index) {
+		return children.at(index);
+	}
+
+	const auto &at(size_t index) const {
+		return children.at(index);
 	}
 
 	const auto &back() const {
@@ -298,7 +308,7 @@ public:
 	Token concat() const;
 	Token concatSmall() const; // Reduces all spaces to only one single space
 
-	void printRecursive(std::ostream &stream, int depth = 0);
+	void printRecursive(std::ostream &stream, int depth = 0) const;
 
 	void setKeywords();
 
