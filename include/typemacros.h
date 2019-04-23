@@ -15,6 +15,7 @@
 
 // Types that is not associated to keywords:
 ts(Literal)
+ts(DateLiteral)
 ts(Root)
 ts(Numeric)
 ts(Operator)
@@ -87,6 +88,10 @@ ts(SelectCaseStatement)
 ts(CaseStatement)
 ts(ConstStatement)
 ts(TypeStatement)
+ts(GetStatement)
+ts(PutStatement)
+ts(CloseStatement)
+ts(DoWhileStatement)
 
 ts(MethodCall)
 
@@ -111,6 +116,7 @@ tn(Dim)
 tn(Redim)
 tn(Set)
 tn(Get)
+tn(Put)
 tn(Call)
 
 
@@ -132,9 +138,12 @@ tn(To)
 tn(True)
 tn(False)
 tn(Open)
+tn(Close)
 tn(Binary)
 tn(Select)
 tn(Case)
+
+tn(Rnd)
 
 
 td(TypesBegin)
@@ -184,6 +193,7 @@ tn(Xor)
 tn(Mod)
 tl(Comma, ",")
 tl(Dot, ".")
+tl(Colon, ":")
 tl(Asterisks, "*")
 tl(Slash, "/")
 tl(Backslash, "\\")
@@ -212,3 +222,4 @@ ts(CVariableDeclaration)
 ts(CDefaultArgument)
 ts(CFunctionWithType)
 ts(CVoidFunction)
+ts(CCaseStatement)

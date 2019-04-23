@@ -9,6 +9,7 @@
 #include "file.h"
 #include <fstream>
 #include <iostream>
+#include <algorithm>
 using namespace std;
 
 namespace vbconv {
@@ -94,7 +95,7 @@ void File::tokenize() {
 	};
 
 	auto isspecial = [&] (char c) {
-		const string chars("+-*/=\".'()[]{}\\,!#*^&<>");
+		const string chars("+-*/=\".'()[]{}\\,!#*^&<>:");
 		return chars.find(c) != string::npos;
 	};
 
@@ -197,10 +198,24 @@ void File::tokenize() {
 			}
 			token.type = Token::Operator;
 			token += c;
-			//Visual basic only has single character operators
-//			while (isspecial(peek())) {
-//				token += get();
-//			}
+			// Visual basic only has single and double character operators
+			auto p = peek();
+			if (isspecial(p)) {
+				if (p == '=' || p == '<' || p == '>') {
+					const vector<string> longSpecialTokens = {
+							"<<",
+							">>",
+							"==",
+							"<=",
+							">=",
+							"<>",
+					};
+					if (find(longSpecialTokens.begin(), longSpecialTokens.end(),
+							(string() + c + p)) != longSpecialTokens.end()) {
+						token += get();
+					}
+				}
+			}
 			appendSpaces();
 			newWord();
 		}
@@ -210,7 +225,7 @@ void File::tokenize() {
 				newWord();
 			}
 			token += c;
-			if (isdigit(peek())) {
+			while (isdigit(peek())) {
 				token += get(); //Words can contain numbers
 			}
 		}

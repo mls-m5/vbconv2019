@@ -30,6 +30,7 @@ struct TypeDeclaration {
 		Class,
 		Module,
 		Array,
+		Function,
 	};
 
 	std::string casedName;

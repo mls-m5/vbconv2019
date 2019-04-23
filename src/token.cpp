@@ -107,11 +107,13 @@ static vector<Pattern> patternRules = {
 
 	{{Token::New, Token::Word}, Token::NewStatement},
 	{{Token::Exit, Token::Any}, Token::ExitStatement},
-	{{Token::As, Token::Hash, {Token::Numeric, Token::Word}}, Token::FileNumberStatement},
-	{{Token::Hash, {Token::Numeric, Token::Word}}, Token::FileNumberStatement},
+	{{Token::Hash, Token::Numeric, Token::Slash, Token::Numeric, Token::Slash, Token::Numeric, Token::Hash}, Token::DateLiteral},
+	{{Token::Hash, Token::Numeric, Token::Slash, Token::Numeric, Token::Slash, Token::Numeric, Token::Numeric, Token::Colon, Token::Numeric, Token::Word, Token::Hash}, Token::DateLiteral},
+	{{Token::As, Token::Hash, {Token::Numeric, Token::Word}}, Token::FileNumberStatement, Pattern::FromLeft, Token::Any, Token::DateLiteral},
+	{{Token::Hash, {Token::Numeric, Token::Word}}, Token::FileNumberStatement, Pattern::FromLeft, Token::Any, Token::DateLiteral},
 	{{Token::Declare, {Token::Function, Token::Sub}, Token::Word, Token::Lib, Token::Literal, Token::Parenthesis, Token::As, Token::Any}, Token::DeclareStatement},
 
-	Pattern({{Token::Word, typeCharacters}, Token::TypeCharacterClause, Pattern::FromLeft, Token::Any, Token::None, [] (Pattern &p, int index, Group &g) {
+	Pattern({{Token::Word, typeCharacters}, Token::TypeCharacterClause, Pattern::FromLeft, Token::Any, Token::DateLiteral, [] (Pattern &p, int index, Group &g) {
 		//Prevent match on concatenated strings
 		if (index > 0) {
 			auto typeBefore = g[index - 1].type();
@@ -163,7 +165,7 @@ static vector<Pattern> patternRules = {
 	{{Token::Optional, Token::Any}, Token::OptionalStatement},
 
 	{{Token::Any, Token::Exp, Token::Any}, Token::Exponentiation},
-	{{Token::Any, TokenPattern({Token::Asterisks, Token::Slash}), Token::Any}, Token::MultiplicationOrDivision},
+	{{Token::Any, TokenPattern({Token::Asterisks, Token::Slash}), Token::Any}, Token::MultiplicationOrDivision, Pattern::FromLeft, Token::Any, Token::DateLiteral},
 	{{Token::Any, TokenPattern({Token::Backslash}), Token::Any}, Token::IntegerDivision},
 	{{Token::Any, Token::Mod, Token::Any}, Token::ModulusOperation},
 	{{Token::Any, TokenPattern({Token::Plus, Token::Minus}), Token::Any}, Token::AdditionOrSubtraction},
@@ -213,7 +215,11 @@ static vector<Pattern> patternRules = {
 
 
 	{{Token::Open, Token::Any, Token::For, Token::Any, Token::FileNumberStatement}, Token::OpenStatement, Pattern::LineRule, Token::Any, {Token::ForLoop}},
-	{{{Token::Word, Token::PropertyAccessor, Token::FunctionCallOrPropertyAccessor, Token::Get}, TokenPattern({Token::Any}, {Token::Then})}, Token::MethodCall, Pattern::FromLeft, {Token::Line, Token::Root, Token::InlineIfStatement, Token::InlineIfElseStatement}, {Token::OpenStatement}},
+	{{Token::Get, Token::CommaList}, Token::GetStatement},
+	{{Token::Put, Token::CommaList}, Token::PutStatement},
+	{{Token::Close, Token::FileNumberStatement}, Token::CloseStatement},
+
+	{{{Token::Word, Token::PropertyAccessor, Token::FunctionCallOrPropertyAccessor}, TokenPattern({Token::Any}, {Token::Then})}, Token::MethodCall, Pattern::FromLeft, {Token::Line, Token::Root, Token::InlineIfStatement, Token::InlineIfElseStatement}, {Token::OpenStatement}},
 	{{Token::If, Token::Any, Token::Then, Token::Any, Token::Else, Token::Any}, Token::InlineIfElseStatement, Pattern::LineRule, Token::Any, {Token::IfStatement}},
 	{{Token::If, Token::Any, Token::Then, Token::Any}, Token::InlineIfStatement, Pattern::LineRule, Token::Any, {Token::IfStatement, Token::InlineIfElseStatement}},
 	{{Token::If, Token::Any, Token::Then}, Token::IfStatement, Pattern::LineRule, Token::Token::Any, {Token::InlineIfStatement, Token::InlineIfElseStatement}},
@@ -221,6 +227,7 @@ static vector<Pattern> patternRules = {
 //	{{Token::Else}, Token::ElseStatement, Pattern::FromLeft, Token::Line},
 	{{Token::For, Token::Any, Token::To, Token::Any, Token::Step, Token::Any}, Token::ForLoop, Pattern::LineRule, Token::Any, {Token::ForLoop, Token::OpenStatement}},
 	{{Token::For, Token::Any, Token::To, Token::Any}, Token::ForLoop, Pattern::LineRule, Token::Any, {Token::ForLoop, Token::OpenStatement}},
+	{{Token::Do, Token::While, Token::Any}, Token::DoWhileStatement},
 	{{Token::Loop, Token::While, Token::Any}, Token::LoopWhileStatement},
 	{{Token::Const, Token::Any}, Token::ConstStatement},
 	{{accessSpecifierTokens, Token::Any}, Token::AccessSpecifier},

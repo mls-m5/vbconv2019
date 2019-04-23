@@ -47,6 +47,13 @@ public:
 		((string*)this)->clear();
 	}
 
+	Token strip() const {
+		Token ret(*this);
+		ret.leadingSpace.clear();
+		ret.trailingSpace.clear();
+		return ret;
+	}
+
 	// How it was originally written
 	string spelling() const {
 		if (cased.empty()) {
@@ -305,6 +312,16 @@ public:
 
 	string spelling() const;
 
+	//Return the spelling of the token for the group
+	string wordSpelling() const {
+		return token.wordSpelling();
+	}
+
+	//Return the value of the token without whitespace
+	Token strip() const {
+		return token.strip();
+	}
+
 	//Concatenate all tokens to one single token
 	Token concat() const;
 	Token concatSmall() const; // Reduces all spaces to only one single space
@@ -352,6 +369,14 @@ public:
 			Token::Type t = Token::None)
 	{
 		group(b - begin(), e - begin(), stripOuter, t);
+	}
+
+	inline bool operator ==(Token::Type t) const {
+		return type() == t;
+	}
+
+	inline bool operator !=(Token::Type t) const {
+		return type() != t;
 	}
 
 	// create a group for a range

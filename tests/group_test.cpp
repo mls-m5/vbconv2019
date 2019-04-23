@@ -112,15 +112,22 @@ TEST_CASE("function") {
 	TestFile("Public Function GetNames(Number As TheType)");
 }
 
+TEST_CASE("date") {
+	TestFile f(".Date = #1/1/2200#");
+	TestFile g(".Date = #1/1/2200 10:11 PM#");
+}
+
+TEST_CASE("do while") {
+	TestFile f("Do While isRunning");
+}
+
 TEST_CASE("for loop") {
 	{
 		TestFile f("for i as single = 0 to 10");
-		ASSERT_EQ(f.tokens.front().size(), 1);
 		ASSERT_EQ(f.tokens.front().front().type(), Token::ForLoop);
 	}
 	{
 		TestFile f("for i as single = 0 to 10 step 2");
-		ASSERT_EQ(f.tokens.front().size(), 1);
 		ASSERT_EQ(f.tokens.front().front().type(), Token::ForLoop);
 	}
 }

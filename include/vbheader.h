@@ -18,6 +18,10 @@ class VBArray: std::vector<T> {
 	T &operator ()(size_t index) {
 		return at(index);
 	}
+
+	VBArray *operator ->() {
+		return this;
+	}
 };
 
 template <class T>
@@ -30,4 +34,17 @@ class VBType {
 template <class T>
 class VBClass: std::enable_shared_from_this<T> {
 
+	template <typename T>
+	static void _save(std::ostream &stream, T value) {
+		stream.write((char *)&value, sizeof(value));
+	}
+
+	template <typename T>
+	static void _load(std::istream &stream, T value) {
+		stream.read((char *)&value, sizeof(value));
+	}
 };
+
+
+
+
