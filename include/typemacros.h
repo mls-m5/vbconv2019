@@ -209,3 +209,6 @@ td(BinaryOperatorsEnd)
 
 
 ts(CVariableDeclaration)
+ts(CDefaultArgument)
+ts(CFunctionWithType)
+ts(CVoidFunction)

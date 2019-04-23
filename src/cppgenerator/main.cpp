@@ -27,6 +27,8 @@ struct {
 	TypeDeclaration type;
 } currentFunction;
 
+string currentLineEnding = ";";
+
 string getIndent(int d = -1) {
 	if (d < 0) {
 		if(depth >= 0) {
@@ -80,7 +82,17 @@ map<Token::Type, function<Group(const Group &)>> genMap = {
 			auto op = g[1];
 			op.token.leadingSpace = " ";
 
-			return Group({generateCpp(g.front()), op, generateCpp(g.back())});
+//			cout << "Assignment to " << g.front().token.wordSpelling() << " compared to " << currentFunction.name << endl;
+
+			if (g.front().type() == Token::AttributeStatement) {
+				return Group(Token::Remove);
+			}
+			if (g.front().type() == Token::Word && g.front().token.wordSpelling() == currentFunction.name) {
+				return Group({Token("_ret", g.location()), op, generateCpp(g.back())});
+			}
+			else {
+				return Group({generateCpp(g.front()), op, generateCpp(g.back())});
+			}
 		}},
 
 		{Token::SetStatement,  [] (const Group &g) -> Group {
@@ -226,7 +238,14 @@ map<Token::Type, function<Group(const Group &)>> genMap = {
 				return Group({generateCpp(g.front()), Token("->", g.location()), generateCpp(propertyAccessor.back())});
 			}
 			else if (g.back().type() == Token::Parenthesis) {
-				return Group({generateCpp(g.front()), generateCpp(g.back())});
+				//Function call:
+				auto functionName = g.front();
+				if (functionName.type() == Token::Word && functionName.token.wordSpelling() != currentFunction.name) {
+					// Prevent function name to be replaced with _ret in recursion
+					functionName = generateCpp(functionName);
+				}
+
+				return Group({functionName, generateCpp(g.back())});
 			}
 			throw VerificationError(g.token, "statement is missing property accessor or parenthesis");
 		}},
@@ -235,7 +254,12 @@ map<Token::Type, function<Group(const Group &)>> genMap = {
 			if (g.size() != 2) {
 				throw VerificationError(g.token, "wrong size in method call");
 			}
-			return Group({generateCpp(g.front()), Token("(", g.location()), generateCpp(g.back()), Token(")", g.location())});
+			auto methodName = g.front();
+			if (methodName.type() == Token::Word && methodName.token.wordSpelling() != currentFunction.name) {
+				// This will prevent the functions name to be replaced with _ret in recursion
+				methodName = generateCpp(methodName);
+			}
+			return Group({methodName, Token("(", g.location()), generateCpp(g.back()), Token(")", g.location())});
 		}},
 
 
@@ -247,19 +271,34 @@ map<Token::Type, function<Group(const Group &)>> genMap = {
 		}},
 
 		{Token::InlineIfStatement,  [] (const Group &g) -> Group {
-			if (g.size() != 4) {
-				throw VerificationError(g.token, "wrong number of children in inline if statement");
-			}
+			ExpectSize(g, 4);
 
 			return Group({Token("if (", g.location()), generateCpp(g[1]), Token(") ", g.location()), generateCpp(g[3])});
-//			return Group();
+		}},
+
+		{Token::InlineIfElseStatement,  [] (const Group &g) -> Group {
+			ExpectSize(g, 6);
+
+			return Group({
+				Token("if (", g.location()),
+						generateCpp(g[1]),
+						Token(") ", g.location()),
+						generateCpp(g[3]),
+						Token(" else ", g.location()),
+						generateCpp(g[5]),
+			});
 		}},
 
 		{Token::Word,  [] (const Group &g) -> Group {
 			if (!g.empty()) {
 				throw VerificationError(g.token, "Word has children");
 			}
-			return Token(g.token.wordSpelling(), g.location());
+			if (g.token.wordSpelling() == currentFunction.name) {
+				return Token("_ret", g.location());
+			}
+			else {
+				return Token(g.token.wordSpelling(), g.location());
+			}
 		}},
 
 		{Token::ExitStatement,  [] (const Group &g) -> Group {
@@ -294,7 +333,7 @@ map<Token::Type, function<Group(const Group &)>> genMap = {
 					return ret;
 				}
 				else {
-					auto ret = Group({Token(getIndent(), g.location()), generateCpp(g.front()), Token(";\n", g.location())});
+					auto ret = Group({Token(getIndent(), g.location()), generateCpp(g.front()), Token(currentLineEnding + "\n", g.location())});
 
 					if (ret.type() == Token::Remove) {
 						return Group(Token::Remove);
@@ -310,27 +349,34 @@ map<Token::Type, function<Group(const Group &)>> genMap = {
 		{Token::Block,  [] (const Group &g) -> Group {
 			Group ret;
 
-			auto blockType = g.front().front().type();
+			auto &block = g.front().front();
+			auto blockType = block.type();
+			auto endBlockString = "}\n"s;
+			currentLineEnding = ";";
 
-			string indent(depth * tabSize, ' ');
+			ret.push_back(Token(getIndent(), g.location()));
 
-			if (blockType == Token::AccessSpecifier) {
-				if (auto name = g.front().getByType(Token::Word)) {
-					cout << "function with name " << name->spelling() << endl;
-					string typeName = "void";
-					if (auto asClause = g.front().getByType(Token::AsClause)) {
-						auto typetoken = asClause->back();
-						typeName = generateTypeString(typetoken.token);
-						cout << "and with type " << typeName << endl;
-					}
-					ret.push_back(Token(indent + typeName + " " + name->spelling() +  "(", g.location()));
-					if (auto p = g.front().getByType(Token::Parenthesis)) {
-						if (p->size() > 0) {
-							ret.push_back(generateCpp(p->front()));
-						}
-					}
-					ret.push_back(Token(") {\n", g.location()));
-					ret.push_back(Token(getIndent(depth + 1) + typeName + " " + name->spelling() + ";\n", g.location()));
+			auto functionStatement = g.front().getByType(Token::SubStatement);
+			if (!functionStatement) {
+				functionStatement =  g.front().getByType(Token::FunctionStatement);
+			}
+
+			if (functionStatement) {
+				auto f = generateCpp(*functionStatement);
+				if (f.type() == Token::CFunctionWithType) {
+					endBlockString = "\n" + getIndent(depth + 1) + "return " + "_ret" + /*name->spelling()*/ + ";\n" + getIndent() + "}";
+				}
+				ret.push_back(move(f));
+			}
+			else if (blockType == Token::AccessSpecifier) {
+				if (block.back().type() == Token::TypeStatement) {
+					ret.push_back(generateCpp(block.back()));
+					endBlockString = "};";
+				}
+				else if (block.back().type() == Token::EnumStatement) {
+					ret.push_back(generateCpp(block.back()));
+					currentLineEnding = ",";
+					endBlockString = "};";
 				}
 				else {
 					cout << "could not find a name for the block" << endl;
@@ -343,6 +389,7 @@ map<Token::Type, function<Group(const Group &)>> genMap = {
 				ret.push_back(Token(") {\n", g.location()));
 			}
 			else if (blockType == Token::WithStatement) {
+//				ret.push_back(Token(getIndent(depth - 1) + "{", g.location()));
 				ret.push_back(Token(getIndent(depth), g.location()));
 
 				auto with = g.front().front();
@@ -361,10 +408,44 @@ map<Token::Type, function<Group(const Group &)>> genMap = {
 			--depth;
 
 
-			ret.push_back(Token(indent + "}\n", g.back().location()));
+			ret.push_back(Token(getIndent() + endBlockString +"\n", g.back().location()));
 
 			return ret;
 		}},
+
+		{Token::FunctionStatement,  [] (const Group &g) -> Group {
+			if (auto name = g.getByType(Token::Word)) {
+				Group ret;
+				cout << "function with name " << name->spelling() << endl;
+				auto type = "void"s;
+				ret.type(Token::CVoidFunction);
+
+				if (g.back().type() == Token::AsClause) {
+					auto asClause = g.back();
+					auto typetoken = asClause.back();
+					type = generateTypeString(typetoken.token);
+					cout << "and with type " << type << endl;
+					ret.type(Token::CFunctionWithType);
+
+					currentFunction.name = name->token.wordSpelling();
+				}
+
+				ret.push_back(Token(type + " " + name->token.wordSpelling() +  "(", g.location()));
+
+				if (auto p = g.getByType(Token::Parenthesis)) {
+					if (p->size() > 0) {
+						ret.push_back(generateCpp(p->front()));
+					}
+				}
+				ret.push_back(Token(") {\n", g.location()));
+				if (type != "void") {
+					ret.push_back(Token(getIndent(depth + 1) + type + " _ret" + ";\n", g.location()));
+				}
+				return ret;
+			}
+			GenerateError(g, "could not create sub or function, no name found");
+		}},
+
 
 		{Token::AccessSpecifier, [] (const Group &g) -> Group {
 			if (g.size() != 2) {
@@ -400,10 +481,6 @@ map<Token::Type, function<Group(const Group &)>> genMap = {
 				auto ret = generateCpp(g[1]);
 				return ret;
 			}
-			else if(type == Token::TypeStatement) {
-#warning "this should be under the block token"
-				return generateCpp(g[1]);
-			}
 			else if(type == Token::ConstStatement) {
 				return generateCpp(g[1]);
 			}
@@ -438,11 +515,18 @@ map<Token::Type, function<Group(const Group &)>> genMap = {
 
 		{Token::TypeStatement, [] (const Group &g) -> Group {
 			ExpectSize(g, 2);
-			return Group({Token("struct ", g.location()), generateCpp(g.back()), Token(" {", g.location())});
+			auto name = g.back().token.wordSpelling();
+			return Group({Token("struct " + name + ":VBStruct<" + name +  "> {\n" + getIndent(), g.location())});
 		}},
 
-		{Token::TypeStatement, [] (const Group &g) -> Group {
-			ExpectSize(g, 8);
+		{Token::EnumStatement, [] (const Group &g) -> Group {
+			ExpectSize(g, 2);
+			auto name = g.back().token.wordSpelling();
+			return Group({Token("enum " + name + " {\n" + getIndent(), g.location())});
+		}},
+
+		{Token::DeclareStatement, [] (const Group &g) -> Group {
+			ExpectSize(g, 6);
 			cerr << "declare statement is not implemented" << endl;
 			return Group();
 		}},
@@ -471,12 +555,22 @@ map<Token::Type, function<Group(const Group &)>> genMap = {
 #warning "implement byref";
 		}},
 
+		{Token::RedimStatement, [] (const Group &g) -> Group {
+			ExpectSize(g, 2);
+			ExpectSize(g.back(), 2);
+			return Group({generateCpp(g.back().front()), Token(".resize", g.location()), generateCpp(g.back().back())});
+		}},
 
 		{Token::OptionalStatement, [] (const Group &g) -> Group {
 			auto ret = generateCpp(g.back());
 
-			ret.push_back(Token(" = 0", g.location()));
-			return ret;
+			if (ret.type() == Token::CDefaultArgument) {
+				return ret;
+			}
+			else {
+				ret.push_back(Token(" = 0", g.location()));
+				return ret;
+			}
 		}},
 
 		{Token::NewStatement, [] (const Group &g) -> Group {
@@ -524,11 +618,13 @@ map<Token::Type, function<Group(const Group &)>> genMap = {
 			return Group(Token::Remove);
 		}},
 
-		{Token::AsClause, [] (const Group &g) -> Group {
-			if (g.size() != 3) {
-				throw GenerateError(g, "Wrong amount of arguments in type character clause");
-			}
+		{Token::DefaultAsClause, [] (const Group &g) -> Group {
+			ExpectSize(g, 3);
+			return Group({generateCpp(g.front()), g[1], generateCpp(g.back())}, Token::CDefaultArgument);
+		}},
 
+		{Token::AsClause, [] (const Group &g) -> Group {
+			ExpectSize(g, 3);
 			Group ret = g.token;
 
 			string type = generateTypeString(g[2].token);
@@ -549,6 +645,7 @@ public:
 		genMap[Token::ModulusOperation] = genMap.at(Token::AdditionOrSubtraction);
 		genMap[Token::Conjunction] = genMap.at(Token::AdditionOrSubtraction);
 		genMap[Token::InclusiveDisjunction] = genMap.at(Token::AdditionOrSubtraction);
+		genMap[Token::SubStatement] = genMap.at(Token::FunctionStatement);
 	}
 } initClass;
 

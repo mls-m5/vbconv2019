@@ -156,8 +156,9 @@ public:
 	Group() = default;
 	Group(Group &&) = default;
 	Group(const Group &) = default;
-	Group(std::vector<Group> &&list): children(list) {
+	Group(std::vector<Group> &&list, Token::Type type = Token::None): children(list) {
 		token.location() = children.front().location();
+		this->type(type);
 	};
 
 	Group(Token &&t): token(t) {}
@@ -197,35 +198,35 @@ public:
 		return children.end();
 	}
 
-	auto size() const {
+	size_t size() const {
 		return children.size();
 	}
 
-	auto empty() const {
+	bool empty() const {
 		return children.empty();
 	}
 
-	auto &front() {
+	Group &front() {
 		return children.front();
 	}
 
-	const auto &front() const {
+	const Group &front() const {
 		return children.front();
 	}
 
-	auto &back() {
+	Group &back() {
 		return children.back();
 	}
 
-	auto &at(size_t index) {
+	Group &at(size_t index) {
 		return children.at(index);
 	}
 
-	const auto &at(size_t index) const {
+	const Group &at(size_t index) const {
 		return children.at(index);
 	}
 
-	const auto &back() const {
+	const Group &back() const {
 		return children.back();
 	}
 
@@ -237,7 +238,7 @@ public:
 		return children[i];
 	}
 
-	auto type() const {
+	Token::Type type() const {
 		return token.type;
 	}
 

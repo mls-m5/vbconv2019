@@ -183,6 +183,9 @@ static vector<Pattern> patternRules = {
 			if (index > 1 && g[index - 1].type() == Token::Const) {
 				return false; // in const statements
 			}
+			if (index > 1 && g[index - 1].type() == Token::Else) {
+				return false; //IN inline if-else statement
+			}
 		}
 		return true;
 	}},
@@ -199,10 +202,10 @@ static vector<Pattern> patternRules = {
 
 
 	{{Token::Open, Token::Any, Token::For, Token::Any, Token::FileNumberStatement}, Token::OpenStatement, Pattern::LineRule, Token::Any, {Token::ForLoop}},
-	{{{Token::Word, Token::PropertyAccessor, Token::FunctionCallOrPropertyAccessor, Token::Get}, TokenPattern({Token::Any}, {Token::Then})}, Token::MethodCall, Pattern::FromLeft, {Token::Line, Token::Root, Token::InlineIfStatement}, {Token::OpenStatement}},
+	{{{Token::Word, Token::PropertyAccessor, Token::FunctionCallOrPropertyAccessor, Token::Get}, TokenPattern({Token::Any}, {Token::Then})}, Token::MethodCall, Pattern::FromLeft, {Token::Line, Token::Root, Token::InlineIfStatement, Token::InlineIfElseStatement}, {Token::OpenStatement}},
 	{{Token::If, Token::Any, Token::Then, Token::Any, Token::Else, Token::Any}, Token::InlineIfElseStatement, Pattern::LineRule, Token::Any, {Token::IfStatement}},
 	{{Token::If, Token::Any, Token::Then, Token::Any}, Token::InlineIfStatement, Pattern::LineRule, Token::Any, {Token::IfStatement, Token::InlineIfElseStatement}},
-	{{Token::If, Token::Any, Token::Then}, Token::IfStatement, Pattern::LineRule, Token::Token::Any, {Token::InlineIfStatement}},
+	{{Token::If, Token::Any, Token::Then}, Token::IfStatement, Pattern::LineRule, Token::Token::Any, {Token::InlineIfStatement, Token::InlineIfElseStatement}},
 	{{Token::Elseif, Token::Any, Token::Then}, Token::ElseIfStatement, Pattern::FromLeft, Token::Line},
 //	{{Token::Else}, Token::ElseStatement, Pattern::FromLeft, Token::Line},
 	{{Token::For, Token::Any, Token::To, Token::Any, Token::Step, Token::Any}, Token::ForLoop, Pattern::LineRule, Token::Any, {Token::ForLoop, Token::OpenStatement}},
