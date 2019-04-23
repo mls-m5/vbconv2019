@@ -174,18 +174,29 @@ static vector<Pattern> patternRules = {
 			if (index == 0 && (g.type() == Token::Root || g.type() == Token::Line || Token::Assignment)) {
 				return false; //This is a assignment
 			}
-			if (index > 0 && g[index - 1].type() == Token::Set) {
-				return false; // This is a set operation. ie set x = object y
+			if (index > 0) {
+				auto type = g[index - 1].type();
+				if (type == Token::Set) {
+					return false; // This is a set operation. ie set x = object y
+				}
+				else if (type == Token::Const) {
+					return false; // in const statements
+				}
+				else if (type == Token::Else) {
+					return false; //IN inline if-else statement
+				}
+				else if (type == Token::For) {
+					return false;
+				}
+				else if (type == Token::Dim) {
+					return false;
+				}
+
+				if (index > 2 && type == Token::Then) {
+					return false; //If assignment is after inline if statement
+				}
 			}
-			if (index > 2 && g[index - 1].type() == Token::Then) {
-				return false; //If assignment is after inline if statement
-			}
-			if (index > 1 && g[index - 1].type() == Token::Const) {
-				return false; // in const statements
-			}
-			if (index > 1 && g[index - 1].type() == Token::Else) {
-				return false; //IN inline if-else statement
-			}
+
 		}
 		return true;
 	}},
@@ -297,18 +308,21 @@ Token Group::concatSmall() const {
 	ostringstream ssCased;
 	Token ret = token;
 	if (!token.empty()) {
-		ss << (string) token << " ";
+		ss << (string) token;
+		ss << " ";
 	}
 	for (auto &c: children) {
-		ss << (string) c.concatSmall() << " ";
+		ss << (string) c.concatSmall();
+		ss << " ";
 	}
 	if (!endToken.empty()) {
-		ss << (string) endToken << " ";
+		ss << (string) endToken;
+		ss << " ";
 	}
 	ret.assign(ss.str());
-	if (!ret.empty()) {
-		ret.pop_back();
-	}
+//	if (!ret.empty()) {
+//		ret.pop_back();
+//	}
 	return ret;
 }
 

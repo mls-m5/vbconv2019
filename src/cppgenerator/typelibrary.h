@@ -19,7 +19,7 @@ std::string getEnding(const std::string &filename);
 
 //Returns the filename without path name
 std::string getFileName(const std::string &path);
-std::string generateTypeString(const class Token &vbtype);
+std::string generateTypeString(const class Group &vbtype);
 
 
 struct TypeDeclaration {

@@ -8,6 +8,7 @@
 
 #include "typelibrary.h"
 #include "token.h"
+#include "gencpp.h"
 #include <string>
 #include <dirent.h>
 #include <vector>
@@ -141,8 +142,10 @@ TypeDeclaration* findTypeDeclaration(std::string lowerCaseTypeName) {
 	return nullptr;
 }
 
-string generateTypeString(const Token &vbtype) {
-	switch (vbtype.type) {
+string generateTypeString(const Group &vbtype) {
+	auto type = vbtype.type();
+
+	switch (type) {
 	case Token::Integer:
 		return "int";
 		break;
@@ -164,21 +167,26 @@ string generateTypeString(const Token &vbtype) {
 	case Token::String:
 		return "std::string";
 		break;
+
 	default:
 		break;
 	}
-	if (auto typeDecl = findTypeDeclaration(vbtype)) {
+
+	auto typeToken = vbtype.token;
+	if (auto typeDecl = findTypeDeclaration(typeToken)) {
 		if (typeDecl->type == TypeDeclaration::Class) {
-			cout << "found class " << vbtype.wordSpelling() << " creating shared_ptr" << endl;
+			cout << "found class " << typeToken.wordSpelling() << " creating shared_ptr" << endl;
+
 			return "std::shared_ptr<" + typeDecl->casedName + ">";
+
 		}
 		else {
 			return typeDecl->casedName;
 		}
 	}
 	else {
-		cout << "could not find type with name " << vbtype.wordSpelling() << endl;
-		return vbtype.wordSpelling();
+		cout << "could not find type with name " << typeToken.wordSpelling() << endl;
+		return typeToken.wordSpelling();
 	}
 }
 
