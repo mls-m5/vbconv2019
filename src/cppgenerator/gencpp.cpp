@@ -56,8 +56,9 @@ class GenerateError: public exception {
 public:
 	GenerateError(const Group &g, string message) {
 		stringstream ss;
-		ss << g.token.location() << ":" << message << "\n" << g.spelling();
-		message = ss.str();
+		ss << g.token.location() << ":" << message << "\n" << g.spelling() << "\n";
+		g.printRecursive(ss);
+		this->message = ss.str();
 	}
 
 	const char *what() const noexcept override {
@@ -69,6 +70,18 @@ public:
 
 void ExpectSize(const Group &g, int size) {
 	if (g.size() != size) {
+		throw GenerateError(g, "wrong size in expression " + g.typeString());
+	}
+}
+
+void ExpectSize(const Group &g, std::initializer_list<int> sizes) {
+	auto found = false;
+	for (auto size: sizes) {
+		if (size == g.size()) {
+			found = true;
+		}
+	}
+	if (!found) {
 		throw GenerateError(g, "wrong size in expression " + g.typeString());
 	}
 }
@@ -87,7 +100,7 @@ map<Token::Type, function<Group(const Group &)>> genMap = {
 
 		{Token::Assignment,  [] (const Group &g) -> Group {
 			if (g.size() != 3) {
-				throw VerificationError(g.token, "wrong number of children in assignment");
+				throw GenerateError(g, "wrong number of children in assignment");
 			}
 
 			auto op = g[1];
@@ -109,16 +122,14 @@ map<Token::Type, function<Group(const Group &)>> genMap = {
 
 		{Token::SetStatement,  [] (const Group &g) -> Group {
 			if (g.size() != 4) {
-				throw VerificationError(g.token, "set statement has wrong size");
+				throw GenerateError(g, "set statement has wrong size");
 			}
 			return Group({generateCpp(g[1]), g[2], generateCpp(g.back())});
 		}},
 
 
 		{Token::ComparisonOperation,  [] (const Group &g) -> Group {
-			if (g.size() != 3) {
-				throw VerificationError(g.token, "wrong number of children in comparison");
-			}
+			ExpectSize(g, 3);
 			auto op = g[1];
 			switch (op.type()) {
 			case Token::NotEqual:
@@ -169,7 +180,7 @@ map<Token::Type, function<Group(const Group &)>> genMap = {
 
 		{Token::Exponentiation,  [] (const Group &g) -> Group {
 			if (g.size() != 3) {
-				throw VerificationError(g.token, "wrong number of children in exp");
+				throw GenerateError(g, "wrong number of children in exp");
 			}
 			return Group({
 				Token("::pow(", g.location()),
@@ -182,15 +193,14 @@ map<Token::Type, function<Group(const Group &)>> genMap = {
 
 
 		{Token::IntegerDivision,  [] (const Group &g) -> Group {
-			throw VerificationError(g.token, "implement integer division");
+			throw GenerateError(g, "implement integer division");
 		}},
 
 
 		{Token::ExclusiveDisjunction,  [] (const Group &g) -> Group {
 			//For xor look here https://stackoverflow.com/questions/1596668/logical-xor-operator-in-c
-			if (g.size() != 3) {
-				throw VerificationError(g.token, "wrong number of children in xor");
-			}
+			ExpectSize(g, 3);
+
 			return Group({
 				Token("!(", g.location()),
 				generateCpp(g.front()),
@@ -202,17 +212,13 @@ map<Token::Type, function<Group(const Group &)>> genMap = {
 
 
 		{Token::UnaryIdentityOrNegation,  [] (const Group &g) -> Group {
-			if (g.size() != 2) {
-				throw VerificationError(g.token, "wrong number of children");
-			}
+			ExpectSize(g, 2);
 			return Group ({g.front(), generateCpp(g.back())});
 		}},
 
 
 		{Token::LogicalNegation,  [] (const Group &g) -> Group {
-			if (g.size() != 2) {
-				throw VerificationError(g.token, "wrong number of children");
-			}
+			ExpectSize(g, 2);
 			return Group ({Token("!", g.location()), generateCpp(g.back())});
 		}},
 
@@ -235,9 +241,7 @@ map<Token::Type, function<Group(const Group &)>> genMap = {
 
 
 		{Token::Parenthesis,  [] (const Group &g) -> Group {
-			if (g.size() > 1) {
-				throw VerificationError(g.token, "parenthesis not parsed properly");
-			}
+			ExpectSize(g, {0, 1});
 			if (g.empty()) {
 				return Token("()", g.location());
 			}
@@ -248,18 +252,14 @@ map<Token::Type, function<Group(const Group &)>> genMap = {
 
 
 		{Token::PropertyAccessor,  [] (const Group &g) -> Group {
-			if (g.size() != 2) {
-				throw VerificationError(g.token, "wrong size on property accessor");
-			}
+			ExpectSize(g, 2);
 
 			return Group({Token("_with->", g.location()), generateCpp(g.back())});
 		}},
 
 
 		{Token::FunctionCallOrPropertyAccessor,  [] (const Group &g) -> Group {
-			if (g.size() != 2) {
-				throw VerificationError(g.token, "wrong size in funuction call or property accessor");
-			}
+			ExpectSize(g, 2);
 			if (g.back().type() == Token::PropertyAccessor) {
 				auto &propertyAccessor = g.back();
 				ExpectSize(g, 2);
@@ -276,13 +276,13 @@ map<Token::Type, function<Group(const Group &)>> genMap = {
 
 				return Group({functionName, generateCpp(g.back())});
 			}
-			throw VerificationError(g.token, "statement is missing property accessor or parenthesis");
+			throw GenerateError(g, "statement is missing property accessor or parenthesis");
 		}},
 
 
 		{Token::MethodCall,  [] (const Group &g) -> Group {
 			if (g.size() != 2) {
-				throw VerificationError(g.token, "wrong size in method call");
+				throw GenerateError(g, "wrong size in method call");
 			}
 			auto methodName = g.front();
 			if (methodName.type() == Token::Word && methodName.token.wordSpelling() != currentFunction.name) {
@@ -294,9 +294,7 @@ map<Token::Type, function<Group(const Group &)>> genMap = {
 
 
 		{Token::LogicalNegation,  [] (const Group &g) -> Group {
-			if (g.size() != 2) {
-				throw VerificationError(g.token, "wrong number of children in logical negation");
-			}
+			ExpectSize(g, 2);
 			return Group({Token("!", g.location()), generateCpp(g[1])});
 		}},
 
@@ -324,7 +322,7 @@ map<Token::Type, function<Group(const Group &)>> genMap = {
 
 		{Token::Word,  [] (const Group &g) -> Group {
 			if (!g.empty()) {
-				throw VerificationError(g.token, "Word has children");
+				throw GenerateError(g, "Word has children");
 			}
 			if (g.token.wordSpelling() == currentFunction.name) {
 				return Token("_ret", g.location());
@@ -344,7 +342,7 @@ map<Token::Type, function<Group(const Group &)>> genMap = {
 			else if (type == Token::Function) {
 				return Token("return " + currentFunction.name, g.location());
 			}
-			else if (type == Token::Do) {
+			else if (type == Token::Do || type == Token::For) {
 				return Token("break", g.location());
 			}
 			throw GenerateError(g, "could not create exit statement for this");
@@ -353,6 +351,11 @@ map<Token::Type, function<Group(const Group &)>> genMap = {
 
 		{Token::Me,  [] (const Group &g) -> Group {
 			return Token("shared_from_this()", g.location());
+		}},
+
+
+		{Token::Rnd,  [] (const Group &g) -> Group {
+			return Token("Rnd()", g.location());
 		}},
 
 
@@ -413,22 +416,25 @@ map<Token::Type, function<Group(const Group &)>> genMap = {
 				ret.push_back(move(f));
 				currentScopeKind = TypeDeclaration::Function;
 			}
-			else if (blockType == Token::AccessSpecifier) {
-				if (block.back().type() == Token::TypeStatement) {
-					ret.push_back(generateCpp(block.back()));
+//			else if (blockType == Token::AccessSpecifier) {
+//				if (block.back().type() == Token::TypeStatement) {
+			else if (auto typeBlock = block.getByType(Token::TypeStatement)) {
+					ret.push_back(generateCpp(*typeBlock));
 					endBlockString = "};";
 					currentScopeKind = TypeDeclaration::Type;
 				}
-				else if (block.back().type() == Token::EnumStatement) {
-					ret.push_back(generateCpp(block.back()));
+//				else if (block.back().type() == Token::EnumStatement) {
+
+			else if (auto enumBlock = block.getByType(Token::EnumStatement)) {
+					ret.push_back(generateCpp(*enumBlock));
 					currentLineEnding = ",";
 					endBlockString = "};";
 					currentScopeKind = TypeDeclaration::Enum;
 				}
-				else {
-					cout << "could not find a name for the block" << endl;
-				}
-			}
+//				else {
+//					cout << "could not find a name for the block" << endl;
+//				}
+//			}
 			else if (blockType == Token::IfStatement) {
 				ret.push_back(Token("if (", g.location()));
 				ret.push_back(generateCpp(block[1]));
@@ -537,7 +543,7 @@ map<Token::Type, function<Group(const Group &)>> genMap = {
 							Token(") {\n", g.location()),
 				});
 			}
-			GenerateError(g, "could not create foor loop --> could not find variable name");
+			throw GenerateError(g, "could not create foor loop --> could not find variable name");
 		}},
 
 
@@ -571,7 +577,7 @@ map<Token::Type, function<Group(const Group &)>> genMap = {
 				}
 				return ret;
 			}
-			GenerateError(g, "could not create sub or function, no name found");
+			throw GenerateError(g, "could not create sub or function, no name found");
 		}},
 
 
@@ -673,7 +679,7 @@ map<Token::Type, function<Group(const Group &)>> genMap = {
 				return generateCpp(g[1]);
 			}
 
-			throw VerificationError(g.token, "Could not do anything with expression");
+			throw GenerateError(g, "Could not do anything with expression");
 		}},
 
 
@@ -720,7 +726,7 @@ map<Token::Type, function<Group(const Group &)>> genMap = {
 		{Token::EnumStatement, [] (const Group &g) -> Group {
 			ExpectSize(g, 2);
 			auto name = g.back().token.wordSpelling();
-			return Group({Token("enum " + name + " {\n" + getIndent(), g.location())});
+			return Group({Token("enum " + name + " {\n", g.location())});
 		}},
 
 
@@ -741,7 +747,13 @@ map<Token::Type, function<Group(const Group &)>> genMap = {
 							assignment->at(1),
 							generateCpp(assignment->back())});
 			}
-			throw VerificationError(g.token, "const expression dit not contain assignment");
+			else if (auto defaultAsClause = g.getByType(Token::DefaultAsClause)) {
+				ExpectSize(g, 2);
+				return Group({
+					Token("const ", g.location()),
+							generateCpp(*defaultAsClause)});
+			}
+			throw GenerateError(g, "const expression do not contain assignment");
 		}},
 
 
@@ -905,13 +917,10 @@ public:
 
 
 Group generateCpp(const Group &g) {
-//	cout << "trying to generate for " << g.location() << g.typeString() << endl;
-
 	if (g.type() == Token::Heading) {
 		return Group();
 	}
 	try {
-//		cout << "looking for " << g.typeString() << endl;
 		auto f = genMap.at(g.type());
 		return f(g);
 	}

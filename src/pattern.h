@@ -66,8 +66,8 @@ struct Pattern: public std::vector<TokenPattern> {
 			TokenPattern blacklistedParent = Token::None,
 			CustomFunctionType customFunction = nullptr):
 		std::vector<TokenPattern>(t),
-		result(result),
 		options(options),
+		result(result),
 		parentConstraint(parent),
 		blacklistedParent(blacklistedParent),
 		customIsMatch(customFunction)

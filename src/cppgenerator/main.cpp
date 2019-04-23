@@ -16,8 +16,8 @@ using namespace std;
 
 int main(int argc, char **argv) {
 //	string filename = "originals/SD/Ship.cls";
-	string filename = "originals/SD/MainMd.bas";
-//	string filename = "originals/SD/MapMod.bas";
+//	string filename = "originals/SD/MainMod.bas";
+	string filename = "originals/SD/MapMod.bas";
 	loadTypeInformation(getDirectory(filename));
 	File f(filename);
 
@@ -29,7 +29,7 @@ int main(int argc, char **argv) {
 
 	auto unitName = getFileName(filename);
 
-	output.children.insert(output.children.begin(), Token("#include \"vbheader.h\"", output.location()));
+	output.children.insert(output.children.begin(), Token("#include \"vbheader.h\"\n", output.location()));
 	if (ending == "cls") {
 		output.children.insert(output.begin(), Group({Token("class " + unitName + " {\n", output.location())}));
 		output.push_back(Token("};", output.location()));

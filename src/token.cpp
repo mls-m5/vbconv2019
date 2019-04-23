@@ -173,7 +173,7 @@ static vector<Pattern> patternRules = {
 	{{Token::Any, TokenPattern({Token::ShiftLeft, Token::ShiftRight}), Token::Any}, Token::ArithmeticBitShift},
 	{{Token::Any, comparisonTokens, Token::Any}, Token::ComparisonOperation, Pattern::FromRight, Token::Any, Token::DefaultAsClause, [] (Pattern &p, int index, Group &g) {
 		if (g[index + 1].type() == Token::Equal) {
-			if (index == 0 && (g.type() == Token::Root || g.type() == Token::Line || Token::Assignment)) {
+			if (index == 0 && (g == Token::Root || g == Token::Line || g == Token::Assignment)) {
 				return false; //This is a assignment
 			}
 			if (index > 0) {
@@ -405,6 +405,7 @@ void Group::groupBlocks(size_t b) {
 		}
 		return {false, Token::None};
 	};
+
 	auto isBlockEnd = [&](Group &g) {
 		if (endType == Token::None) {
 			return false;
@@ -421,6 +422,7 @@ void Group::groupBlocks(size_t b) {
 		if (g.front().type() == endType) {
 			return true;
 		}
+		return false;
 	};
 
 	if (children.size() < 2) {

@@ -46,5 +46,8 @@ class VBClass: std::enable_shared_from_this<T> {
 };
 
 
+double Rnd() {
+	return (double) rand() / RAND_MAX;
+}
 
 
