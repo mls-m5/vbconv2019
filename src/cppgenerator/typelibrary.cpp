@@ -116,13 +116,13 @@ void loadTypeInformation(string rootFolder) {
 		if (!ending.empty() && strippedName.size() > ending.size() + 1) {
 			strippedName = string(strippedName.begin(), strippedName.end() - ending.size() - 1);
 		}
-		cout << "loaded file with ending " << ending << " --> " << getFileName(f) << endl;
+		vout << "loaded file with ending " << ending << " --> " << getFileName(f) << endl;
 		if (ending == "cls" || ending == "frm") {
-			cout << "found class file for class " << strippedName << endl;
+			vout << "found class file for class " << strippedName << endl;
 			declaredTypes.emplace_back(strippedName, TypeDeclaration::Class);
 		}
 		else if (ending == "bas") {
-			cout << "found module " << strippedName << endl;
+			vout << "found module " << strippedName << endl;
 			declaredTypes.emplace_back(strippedName, TypeDeclaration::Module);
 		}
 	}
@@ -175,7 +175,7 @@ string generateTypeString(const Group &vbtype) {
 	auto typeToken = vbtype.token;
 	if (auto typeDecl = findTypeDeclaration(typeToken)) {
 		if (typeDecl->type == TypeDeclaration::Class) {
-			cout << "found class " << typeToken.wordSpelling() << " creating shared_ptr" << endl;
+			vout << "found class " << typeToken.wordSpelling() << " creating shared_ptr" << endl;
 
 			return "std::shared_ptr<" + typeDecl->casedName + ">";
 
@@ -185,7 +185,7 @@ string generateTypeString(const Group &vbtype) {
 		}
 	}
 	else {
-		cout << "could not find type with name " << typeToken.wordSpelling() << endl;
+		vout << "could not find type with name " << typeToken.wordSpelling() << endl;
 		return typeToken.wordSpelling();
 	}
 }

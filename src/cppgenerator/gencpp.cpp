@@ -8,6 +8,7 @@
 
 
 
+#include "gencpp.h"
 #include "typelibrary.h"
 #include <file.h>
 #include <iostream>
@@ -19,6 +20,8 @@
 using namespace std;
 
 namespace vbconv {
+
+bool verboseOutput = false;
 
 Group generateCpp(const Group &g);
 
@@ -106,8 +109,6 @@ map<Token::Type, function<Group(const Group &)>> genMap = {
 			auto op = g[1];
 			op.token.leadingSpace = " ";
 
-//			cout << "Assignment to " << g.front().token.wordSpelling() << " compared to " << currentFunction.name << endl;
-
 			if (g.front().type() == Token::AttributeStatement) {
 				return Group(Token::Remove);
 			}
@@ -193,7 +194,14 @@ map<Token::Type, function<Group(const Group &)>> genMap = {
 
 
 		{Token::IntegerDivision,  [] (const Group &g) -> Group {
-			throw GenerateError(g, "implement integer division");
+			ExpectSize(g, 3);
+			return Group({
+				Token("(int)(", g.location()),
+						generateCpp(g.front()),
+						Token(" / ", g[1].location()),
+						generateCpp(g.back()),
+						Token(")", g.back().location()),
+			});
 		}},
 
 
@@ -416,25 +424,17 @@ map<Token::Type, function<Group(const Group &)>> genMap = {
 				ret.push_back(move(f));
 				currentScopeKind = TypeDeclaration::Function;
 			}
-//			else if (blockType == Token::AccessSpecifier) {
-//				if (block.back().type() == Token::TypeStatement) {
 			else if (auto typeBlock = block.getByType(Token::TypeStatement)) {
-					ret.push_back(generateCpp(*typeBlock));
-					endBlockString = "};";
-					currentScopeKind = TypeDeclaration::Type;
-				}
-//				else if (block.back().type() == Token::EnumStatement) {
-
+				ret.push_back(generateCpp(*typeBlock));
+				endBlockString = "};";
+				currentScopeKind = TypeDeclaration::Type;
+			}
 			else if (auto enumBlock = block.getByType(Token::EnumStatement)) {
-					ret.push_back(generateCpp(*enumBlock));
-					currentLineEnding = ",";
-					endBlockString = "};";
-					currentScopeKind = TypeDeclaration::Enum;
-				}
-//				else {
-//					cout << "could not find a name for the block" << endl;
-//				}
-//			}
+				ret.push_back(generateCpp(*enumBlock));
+				currentLineEnding = ",";
+				endBlockString = "};";
+				currentScopeKind = TypeDeclaration::Enum;
+			}
 			else if (blockType == Token::IfStatement) {
 				ret.push_back(Token("if (", g.location()));
 				ret.push_back(generateCpp(block[1]));
@@ -550,7 +550,7 @@ map<Token::Type, function<Group(const Group &)>> genMap = {
 		{Token::FunctionStatement,  [] (const Group &g) -> Group {
 			if (auto name = g.getByType(Token::Word)) {
 				Group ret;
-				cout << "function with name " << name->spelling() << endl;
+				vout << "function with name " << name->spelling() << endl;
 				auto type = "void"s;
 				ret.type(Token::CVoidFunction);
 
@@ -558,7 +558,7 @@ map<Token::Type, function<Group(const Group &)>> genMap = {
 					auto asClause = g.back();
 					auto typetoken = asClause.back();
 					type = generateTypeString(typetoken.token);
-					cout << "and with type " << type << endl;
+					vout << "and with type " << type << endl;
 					ret.type(Token::CFunctionWithType);
 
 					currentFunction.name = name->token.wordSpelling();
@@ -645,7 +645,7 @@ map<Token::Type, function<Group(const Group &)>> genMap = {
 
 			auto type = g[1].type();
 
-//			cout << "-- type for list or something = " << g.front().typeString() << endl;
+//			vout << "-- type for list or something = " << g.front().typeString() << endl;
 
 			if (type == Token::CommaList) {
 				auto &cl = g[1];
@@ -872,7 +872,7 @@ map<Token::Type, function<Group(const Group &)>> genMap = {
 			};
 
 			if (g.front().type() == Token::FunctionCallOrPropertyAccessor) {
-				cout << "variable " << g.front().front().token.wordSpelling() << " is array of type " << type << endl;;
+				vout << "variable " << g.front().front().token.wordSpelling() << " is array of type " << type << endl;;
 				auto name = g.front().front().token.strip();
 				ret.push_back(Token(
 						"VBArray <" + type + "> "
@@ -925,12 +925,12 @@ Group generateCpp(const Group &g) {
 		return f(g);
 	}
 	catch (out_of_range &e) {
-		cout << "could not find expression for " << g.location() << g.typeString() << endl;
+		vout << "could not find expression for " << g.location() << g.typeString() << endl;
 		return Group();
 	}
 	catch (runtime_error &e) {
-		cout << "error when trying to generate from" << endl;
-		g.printRecursive(cout, 0);
+		vout << "error when trying to generate from" << endl;
+		g.printRecursive(cerr, 0);
 	}
 	return Group();
 }

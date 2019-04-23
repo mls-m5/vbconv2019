@@ -11,6 +11,8 @@
 #include <vector>
 #include <memory>
 
+typedef double Currency;
+
 template <class T>
 class VBArray: std::vector<T> {
 	VBArray(size_t size): std::vector(size) {}
@@ -40,8 +42,19 @@ class VBClass: std::enable_shared_from_this<T> {
 	}
 
 	template <typename T>
-	static void _load(std::istream &stream, T value) {
+	static void _load(std::istream &stream, T &value) {
 		stream.read((char *)&value, sizeof(value));
+	}
+
+	static void _save(std::ostream &stream, T value) {
+		long long out = 1000LL * value;
+		stream.write((char *)&out, sizeof(out));
+	}
+
+	static void _load(std::istream &stream, Currency &value) {
+		long long in = 0;
+		stream.read((char *)&in, sizeof(in));
+		value = (double)in / 1000.;
 	}
 };
 

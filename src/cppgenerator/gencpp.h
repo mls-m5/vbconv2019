@@ -13,6 +13,9 @@ namespace vbconv {
 
 Group generateCpp(const Group &g);
 
-
+extern bool verboseOutput;
 
 }
+
+
+#define vout if (vbconv::verboseOutput) cout
