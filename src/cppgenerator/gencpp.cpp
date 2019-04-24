@@ -1,6 +1,11 @@
 /*
  * gencpp.cpp
  *
+ * This file consists of four parts
+ * 1. Settings and warnings - stuff you need to setup before you start
+ * 2. The functions for creating code
+ * 3. A initialization function for duplicate functions
+ * 4. The main organizing function to be used
  *  Created on: 23 apr. 2019
  *      Author: mattias
  */
@@ -25,7 +30,7 @@ bool verboseOutput = false;
 
 Group generateCpp(const Group &g);
 
-static int depth = 1;
+static int depth = 0;
 static int tabSize = 4;
 
 struct {
@@ -41,6 +46,24 @@ struct {
 } currentType;
 
 TypeDeclaration::Kind currentScopeKind = TypeDeclaration::None;
+
+static struct {
+	bool headerMode = true;
+	string filename;
+	string unitName;
+	string ending;
+} generationsSettings;
+
+void setHeaderMode(bool mode) {
+	generationsSettings.headerMode = mode;
+}
+
+void setFilename(string filename) {
+	generationsSettings.filename = filename;
+	auto file = getFileName(filename);
+	generationsSettings.ending = getEnding(filename);
+	generationsSettings.unitName = string(file.begin(), file.end() - generationsSettings.ending.size() - 1);
+}
 
 string getIndent(int d = -1) {
 	if (d < 0) {
@@ -89,14 +112,46 @@ void ExpectSize(const Group &g, std::initializer_list<int> sizes) {
 	}
 }
 
+typedef Group mapFunc_t (const Group &);
 
-
-map<Token::Type, function<Group(const Group &)>> genMap = {
+map<Token::Type, mapFunc_t*> genMap = {
 		{Token::Root,  [] (const Group &g) -> Group {
 			Group ret;
+			auto lcaseName = generationsSettings.unitName;
+			transform(lcaseName.begin(), lcaseName.end(), lcaseName.begin(), ::tolower);
+
+			string headerString =  "// Generated with Lasersköld vb6conv cpp-generator\n\n";
+
+
+			if (generationsSettings.headerMode) {
+				depth = 1;
+				headerString += "#pragma once\n\n";
+			}
+			else {
+				depth = 0;
+			}
+
 			for (auto &c: g) {
 				ret.push_back(generateCpp(c));
 			}
+
+			if (generationsSettings.ending == "cls") {
+				ret.children.insert(ret.begin(), Group({Token("class " + generationsSettings.unitName + ": public std::enable_shared_from_this<" + generationsSettings.unitName + "> {\npublic:\n", ret.location())}));
+				ret.push_back(Token("};\n", ret.location()));
+			}
+			else if (generationsSettings.ending == "bas") {
+//				unitName = string(unitName.begin(), unitName.end() - 4);
+				ret.children.insert(ret.begin(), Token("namespace " + generationsSettings.unitName + " {\n", ret.location()));
+				ret.push_back(Token("} // namespace \nusing namespace " + generationsSettings.unitName + ";\n", ret.location()));
+			}
+
+			if (generationsSettings.headerMode) {
+				ret.children.insert(ret.children.begin(), Token(headerString + "#include \"vbheader.h\"\n\n", ret.location()));
+			}
+			else {
+				ret.children.insert(ret.children.begin(), Token(headerString + "#include \"" + lcaseName + ".h\"\n\n", ret.location()));
+			}
+
 			return ret;
 		}},
 
@@ -175,7 +230,14 @@ map<Token::Type, function<Group(const Group &)>> genMap = {
 
 
 		{Token::Literal,  [] (const Group &g) -> Group {
-			return g.token.strip();
+			auto ret = g.token.strip();
+			for (auto i = 0; i < ret.size(); ++i) {
+				if (ret[i] == '\\') {
+					ret.insert(i, "\\");
+					++i;
+				}
+			}
+			return ret;
 		}},
 
 
@@ -297,7 +359,8 @@ map<Token::Type, function<Group(const Group &)>> genMap = {
 				// This will prevent the functions name to be replaced with _ret in recursion
 				methodName = generateCpp(methodName);
 			}
-			return Group({methodName, Token("(", g.location()), generateCpp(g.back()), Token(")", g.location())});
+//			cout << methodName.strip().spelling() << endl;
+			return Group({methodName.strip(), Token("(", g.location()), generateCpp(g.back()), Token(")", g.location())});
 		}},
 
 
@@ -322,7 +385,7 @@ map<Token::Type, function<Group(const Group &)>> genMap = {
 						generateCpp(g[1]),
 						Token(") ", g.location()),
 						generateCpp(g[3]),
-						Token(" else ", g.location()),
+						Token("; else ", g.location()),
 						generateCpp(g[5]),
 			});
 		}},
@@ -418,6 +481,11 @@ map<Token::Type, function<Group(const Group &)>> genMap = {
 
 			if (functionStatement) {
 				auto f = generateCpp(*functionStatement);
+
+				if (generationsSettings.headerMode) {
+					return Group({Token(getIndent(), g.location()), move(f)});
+				}
+
 				if (f.type() == Token::CFunctionWithType) {
 					endBlockString = "\n" + getIndent(depth + 1) + "return " + "_ret" + /*name->spelling()*/ + ";\n" + getIndent() + "}";
 				}
@@ -425,11 +493,19 @@ map<Token::Type, function<Group(const Group &)>> genMap = {
 				currentScopeKind = TypeDeclaration::Function;
 			}
 			else if (auto typeBlock = block.getByType(Token::TypeStatement)) {
+				if (!generationsSettings.headerMode) {
+					return Group(Token::Remove);
+				}
+
 				ret.push_back(generateCpp(*typeBlock));
 				endBlockString = "};";
 				currentScopeKind = TypeDeclaration::Type;
 			}
 			else if (auto enumBlock = block.getByType(Token::EnumStatement)) {
+				if (!generationsSettings.headerMode) {
+					return Group(Token::Remove);
+				}
+
 				ret.push_back(generateCpp(*enumBlock));
 				currentLineEnding = ",";
 				endBlockString = "};";
@@ -444,7 +520,10 @@ map<Token::Type, function<Group(const Group &)>> genMap = {
 				auto with = g.front().front();
 
 				ExpectSize(with, 2);
-				ret.children.push_back(Group({Token("{\n" + getIndent(depth + 1) + "auto &_with = ", with.location()), generateCpp(with.back())}));
+				ret.children.push_back(Group({
+					Token("{\n" + getIndent(depth + 1) + "auto &_with = ",
+							with.location()),
+									generateCpp(with.back()), Token(";", g.location())}));
 
 				ret.push_back(Token("\n", g.location()));
 			}
@@ -498,6 +577,7 @@ map<Token::Type, function<Group(const Group &)>> genMap = {
 				ret.push_back(Token(getIndent(depth + 2) + "return stream;\n", blockEnd.location()));
 				ret.push_back(Token(getIndent(depth + 1) + "}\n", blockEnd.location()));
 
+				ret.push_back(Token(getIndent(depth + 1) + currentType.name + " *operator -> () { return *this; }\n\n", blockEnd.location()));
 				ret.push_back(Token(getIndent(depth) + "}\n", blockEnd.location()));
 				currentType.name = "";
 				currentType.members.clear();
@@ -535,11 +615,14 @@ map<Token::Type, function<Group(const Group &)>> genMap = {
 			ExpectSize(g, 4);
 			auto variableName = g[1].getByType(Token::Word);
 			if (variableName) {
+				auto variableSpelling = variableName->strip();
 				return Group({
 					Token("for (", g.location()),
 							generateCpp(g[1]),
-							Token("; " + variableName->token.wordSpelling() + " <= ", g.location()),
+							Token("; " + variableSpelling.spelling() + " <= ", g.location()),
 							generateCpp(g[3]),
+							Token("; ++", g.location()),
+							variableSpelling,
 							Token(") {\n", g.location()),
 				});
 			}
@@ -564,17 +647,33 @@ map<Token::Type, function<Group(const Group &)>> genMap = {
 					currentFunction.name = name->token.wordSpelling();
 				}
 
-				ret.push_back(Token(type + " " + name->token.wordSpelling() +  "(", g.location()));
+				string namespaceOrClassString = "";
+
+				if (!generationsSettings.headerMode && generationsSettings.ending != "bas") {
+					namespaceOrClassString = generationsSettings.unitName;
+					if (!namespaceOrClassString.empty()) {
+						namespaceOrClassString += "::";
+					}
+				}
+
+				ret.push_back(Token(type + " " + namespaceOrClassString
+						+ name->token.wordSpelling() +  "(", g.location()));
 
 				if (auto p = g.getByType(Token::Parenthesis)) {
 					if (p->size() > 0) {
 						ret.push_back(generateCpp(p->front()));
 					}
 				}
-				ret.push_back(Token(") {\n", g.location()));
-				if (type != "void") {
-					ret.push_back(Token(getIndent(depth + 1) + type + " _ret" + ";\n", g.location()));
+				if (generationsSettings.headerMode) {
+					ret.push_back(Token(");\n", g.location()));
 				}
+				else {
+					ret.push_back(Token(") {\n", g.location()));
+					if (type != "void") {
+						ret.push_back(Token(getIndent(depth + 1) + type + " _ret" + ";\n", g.location()));
+					}
+				}
+
 				return ret;
 			}
 			throw GenerateError(g, "could not create sub or function, no name found");
@@ -621,7 +720,7 @@ map<Token::Type, function<Group(const Group &)>> genMap = {
 			auto back = commaList->back();
 			string direction = (g.type() == Token::GetStatement)? " >> " : " << ";
 			return Group({
-				Token("_file" + filenumber.strip() + direction, g.location()),
+				Token("_file" + filenumber.strip().spelling() + direction, g.location()),
 						generateCpp(back)
 			});
 		}},
@@ -634,7 +733,7 @@ map<Token::Type, function<Group(const Group &)>> genMap = {
 				throw GenerateError(g, "could not find file number");
 			}
 			auto filenumber = filenumberGroup->back();
-			return Token("_file" + filenumber.strip() + ".close()", g.location());
+			return Token("_file" + filenumber.strip().spelling() + ".close()", g.location());
 		}},
 
 
@@ -719,7 +818,7 @@ map<Token::Type, function<Group(const Group &)>> genMap = {
 			auto name = g.back().token.wordSpelling();
 			currentType.name = name;
 			currentType.members.clear();
-			return Group({Token("struct " + name + ":VBStruct<" + name +  "> {\n" + getIndent(), g.location())});
+			return Group({Token("struct " + name + " {\n", g.location())});
 		}},
 
 
@@ -820,7 +919,7 @@ map<Token::Type, function<Group(const Group &)>> genMap = {
 				break;
 			}
 
-			ret.push_back(Token(type + " " + g[0].token.wordSpelling(), g.location()));
+			ret.push_back(Token(type + " " + g[0].strip().spelling(), g.location()));
 
 			return ret;
 		}},
@@ -874,10 +973,15 @@ map<Token::Type, function<Group(const Group &)>> genMap = {
 			if (g.front().type() == Token::FunctionCallOrPropertyAccessor) {
 				vout << "variable " << g.front().front().token.wordSpelling() << " is array of type " << type << endl;;
 				auto name = g.front().front().token.strip();
+				auto arguments = generateCpp(g.front().back()).spelling();
+				if (arguments == "()") {
+					// One important difference between visual basic and cpp
+					arguments = "";
+				}
 				ret.push_back(Token(
 						"VBArray <" + type + "> "
-						+ addMember(name)
-						+ generateCpp(g.front().back()).spelling()
+						+ addMember(name).wordSpelling()
+						+ arguments
 						, g.location()));
 
 
@@ -887,16 +991,18 @@ map<Token::Type, function<Group(const Group &)>> genMap = {
 
 				ret.push_back(Token("shared_ptr<" + newTypeName
 						+ "> " + g.front().token.wordSpelling() + " (new "
-						+ addMember(newTypeName) + ")"
+						+ addMember(newTypeName).wordSpelling() + ")"
 						, g.location()));
 			}
 			else {
-				ret.push_back(Token(type + " " + addMember(g.front().token.strip()), g.location()));
+				ret.push_back(Token(type + " " + addMember(g.front().token.strip()).wordSpelling(), g.location()));
 			}
 
 			return ret;
 		}},
 };
+
+
 
 static class InitOutputClass {
 public:
@@ -913,8 +1019,14 @@ public:
 	}
 } initClass;
 
+Group generateCpp(string filename, bool header) {
+	loadTypeInformation(getDirectory(filename));
+	setFilename(filename);
+	setHeaderMode(header);
+	File f(filename);
 
-
+	return generateCpp(f.tokens);
+}
 
 Group generateCpp(const Group &g) {
 	if (g.type() == Token::Heading) {

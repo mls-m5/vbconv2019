@@ -286,6 +286,9 @@ void Group::groupBraces(size_t start) {
 			return;
 		}
 	}
+	if (this->at(start) == Token::LeftParenthesis) {
+		throw VerificationError(this->token, "could not find end parenthesis");
+	}
 }
 
 string Group::spelling() const {

@@ -78,15 +78,29 @@ public:
 		return *(string*)this;
 	}
 
+	static bool lineEnding(const string s) {
+		for (int i = 0; i < s.size(); ++i) {
+			if (s[i] == '\n') {
+				if (i > 0 && s[i - 1] == '_') {
+					// '_' is a special character in visal basic signaling that
+					// the line is broken in two ore more
+					return false;
+				}
+				return true;
+			}
+		}
+		return false;
+	}
+
 	bool lineEnding() {
 		if (!trailingSpace.empty()) {
-			return trailingSpace.find('\n') != string::npos;
+			return lineEnding(trailingSpace);
 		}
 		else if (!empty()) {
-			return find('\n') != string::npos;
+			return lineEnding(*this);
 		}
 		else if (!leadingSpace.empty()) {
-			return leadingSpace.find('\n');
+			return lineEnding(leadingSpace);
 		}
 		return false;
 	}
@@ -317,9 +331,35 @@ public:
 		return token.wordSpelling();
 	}
 
+	void stripFront() {
+		if (token.leadingSpace.empty()) {
+			if (!children.empty()) {
+				front().stripFront();
+			}
+		}
+		else {
+			token.leadingSpace.clear();
+		}
+	}
+
+	void stripBack() {
+		if (token.trailingSpace.empty()) {
+			if (!children.empty()) {
+				back().stripBack();
+			}
+		}
+		else {
+			token.trailingSpace.clear();
+		}
+	}
+
+
 	//Return the value of the token without whitespace
-	Token strip() const {
-		return token.strip();
+	Group strip() const {
+		Group g = *this;
+		g.stripFront();
+		g.stripBack();
+		return g;
 	}
 
 	//Concatenate all tokens to one single token

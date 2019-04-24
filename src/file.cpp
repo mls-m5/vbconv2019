@@ -10,6 +10,7 @@
 #include <fstream>
 #include <iostream>
 #include <algorithm>
+#include <functional>
 using namespace std;
 
 namespace vbconv {
@@ -64,10 +65,14 @@ void File::tokenize() {
 		return;
 	}
 
-	auto get = [&]() -> char {
+	std::function<char()> get = [&]() -> char {
 		if (offset + 1 < content.size()) {
 			++offset;
 			auto c = content[offset];
+
+			if (c == '\r') {
+				return get();
+			}
 
 			if (c == '\n') {
 				++currentLocation.line;
@@ -86,7 +91,18 @@ void File::tokenize() {
 
 	auto peek = [&] () -> char {
 		if (offset + 1 < content.size()) {
-			return content[offset + 1];
+			auto p =  content[offset + 1];
+			if (p == '\r') {
+				if (offset + 2 < content.size()) {
+					return content[offset + 2];
+				}
+				else {
+					return char_traits<char>::eof();
+				}
+			}
+			else {
+				return p;
+			}
 		}
 		else {
 			// A long way of saying -1:
@@ -119,6 +135,13 @@ void File::tokenize() {
 		if (token.empty()) {
 			cout << "trying to create new word but the old is empty" << endl;
 		}
+		if (token == "_" && !token.trailingSpace.empty() && token.trailingSpace[0] == '\n') {
+			// Handling _ character
+			tokens.back().token.trailingSpace += token.spelling();
+			token.clear();
+			return;
+		}
+
 		token.location(currentLocation);
 		tokens.push_back(move(token));
 

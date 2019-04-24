@@ -117,6 +117,18 @@ TEST_CASE("date") {
 	TestFile g(".Date = #1/1/2200 10:11 PM#");
 }
 
+TEST_CASE("multiline") {
+	TestFile f("x _\n + y");
+	ASSERT_EQ(f.tokens.size(), 1);
+	TestFile g("(1, _\n3)");
+	ASSERT_EQ(g.tokens.size(), 1);
+
+	//Windows line endings
+	TestFile h("BackSurface.DrawLine _\n    (X + (_with->X1 * LY1)), Y");
+	ASSERT_EQ(h.tokens.size(), 1);
+
+}
+
 TEST_CASE("do while") {
 	TestFile f("Do While isRunning");
 }
@@ -237,7 +249,7 @@ TEST_CASE("open statement") {
 	ASSERT_EQ(f.tokens.front().size(), 1);
 }
 
-TEST_CASE("z - file load test") {
+TEST_CASE("z - file load test - Ship.cls") {
 	try {
 		File f("Ship.cls");
 	}
@@ -247,7 +259,7 @@ TEST_CASE("z - file load test") {
 	}
 }
 
-TEST_CASE("x - file load test 2") {
+TEST_CASE("x - file load test - frmEdit.frm") {
 	try {
 		File f("frmEdit.frm");
 	}

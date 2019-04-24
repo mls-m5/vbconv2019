@@ -10,15 +10,19 @@
 
 #include <vector>
 #include <memory>
+#include <string>
+#include <cmath>
+#include <fstream>
 
 typedef double Currency;
 
 template <class T>
-class VBArray: std::vector<T> {
+class VBArray: public std::vector<T> {
+public:
 	VBArray(size_t size): std::vector(size) {}
 
 	T &operator ()(size_t index) {
-		return at(index);
+		return this->at(index);
 	}
 
 	VBArray *operator ->() {
@@ -26,41 +30,33 @@ class VBArray: std::vector<T> {
 	}
 };
 
-template <class T>
-class VBType {
-	T *operator -> () {
-		return *this;
+namespace std {
+// Without these the compiler will complain when using to_string on strings
+	std::string to_string(const string& str) {
+		return str;
 	}
-};
-
-template <class T>
-class VBClass: std::enable_shared_from_this<T> {
-
-	template <typename T>
-	static void _save(std::ostream &stream, T value) {
-		stream.write((char *)&value, sizeof(value));
+	std::string to_string(const char *c) {
+		return std::string(c);
 	}
-
-	template <typename T>
-	static void _load(std::istream &stream, T &value) {
-		stream.read((char *)&value, sizeof(value));
-	}
-
-	static void _save(std::ostream &stream, T value) {
-		long long out = 1000LL * value;
-		stream.write((char *)&out, sizeof(out));
-	}
-
-	static void _load(std::istream &stream, Currency &value) {
-		long long in = 0;
-		stream.read((char *)&in, sizeof(in));
-		value = (double)in / 1000.;
-	}
-};
-
+}
 
 double Rnd() {
 	return (double) rand() / RAND_MAX;
 }
 
+#define Cos cos
+#define Sin sin
+#define Sqr sqrt
 
+std::string Chr(char c) {
+	return std::string(1, c);
+}
+
+void DoEvents() {}; //Todo: Implement
+
+enum {
+	vbBlue,
+	vbWhite,
+	vbRed,
+
+};
