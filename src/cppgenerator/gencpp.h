@@ -22,6 +22,8 @@ void setHeaderMode(bool mode);
 // Set the file name of the current code unit
 void setFilename(std::string filename);
 
+void addReferenceToClass(std::string className);
+
 extern bool verboseOutput;
 
 }

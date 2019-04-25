@@ -144,6 +144,9 @@ tn(Select)
 tn(Case)
 
 tn(Rnd)
+tn(Timer)
+tn(Randomize)
+
 
 
 td(TypesBegin)

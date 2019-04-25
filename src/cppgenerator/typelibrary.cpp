@@ -177,8 +177,8 @@ string generateTypeString(const Group &vbtype) {
 		if (typeDecl->type == TypeDeclaration::Class) {
 			vout << "found class " << typeToken.wordSpelling() << " creating shared_ptr" << endl;
 
+			addReferenceToClass(typeDecl->casedName);
 			return "std::shared_ptr<" + typeDecl->casedName + ">";
-
 		}
 		else {
 			return typeDecl->casedName;

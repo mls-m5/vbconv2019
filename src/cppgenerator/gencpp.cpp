@@ -21,6 +21,7 @@
 #include <functional>
 #include <sstream>
 #include <algorithm>
+#include <set>
 
 using namespace std;
 
@@ -45,24 +46,48 @@ struct {
 	string name = "";
 } currentType;
 
-TypeDeclaration::Kind currentScopeKind = TypeDeclaration::None;
 
 static struct {
 	bool headerMode = true;
 	string filename;
 	string unitName;
 	string ending;
-} generationsSettings;
+	Token::Type unitType = Token::Class; //Can be Module or Class
+
+	Token::Type currentAccessLevel = Token::Private;
+
+	set<string> classReferences;
+
+	TypeDeclaration::Kind currentScopeKind = TypeDeclaration::None;
+
+	void clear() {
+		classReferences.clear();
+		currentAccessLevel = Token::Private;
+		ending.clear();
+		unitName.clear();
+		filename.clear();
+		currentScopeKind = TypeDeclaration::None;
+	}
+
+} settings;
 
 void setHeaderMode(bool mode) {
-	generationsSettings.headerMode = mode;
+	settings.headerMode = mode;
 }
 
 void setFilename(string filename) {
-	generationsSettings.filename = filename;
+	settings.filename = filename;
 	auto file = getFileName(filename);
-	generationsSettings.ending = getEnding(filename);
-	generationsSettings.unitName = string(file.begin(), file.end() - generationsSettings.ending.size() - 1);
+	settings.ending = getEnding(filename);
+	settings.unitName = string(file.begin(), file.end() - settings.ending.size() - 1);
+
+	if (settings.ending == "bas") {
+		settings.unitType = Token::Module;
+	}
+}
+
+void addReferenceToClass(std::string className) {
+	settings.classReferences.insert(className);
 }
 
 string getIndent(int d = -1) {
@@ -117,13 +142,13 @@ typedef Group mapFunc_t (const Group &);
 map<Token::Type, mapFunc_t*> genMap = {
 		{Token::Root,  [] (const Group &g) -> Group {
 			Group ret;
-			auto lcaseName = generationsSettings.unitName;
+			auto lcaseName = settings.unitName;
 			transform(lcaseName.begin(), lcaseName.end(), lcaseName.begin(), ::tolower);
 
 			string headerString =  "// Generated with Lasersköld vb6conv cpp-generator\n\n";
 
 
-			if (generationsSettings.headerMode) {
+			if (settings.headerMode) {
 				depth = 1;
 				headerString += "#pragma once\n\n";
 			}
@@ -131,21 +156,32 @@ map<Token::Type, mapFunc_t*> genMap = {
 				depth = 0;
 			}
 
+
 			for (auto &c: g) {
-				ret.push_back(generateCpp(c));
+				auto l = generateCpp(c);
+				if (l != Token::Remove) {
+					ret.push_back(move(l));
+				}
 			}
 
-			if (generationsSettings.ending == "cls") {
-				ret.children.insert(ret.begin(), Group({Token("class " + generationsSettings.unitName + ": public std::enable_shared_from_this<" + generationsSettings.unitName + "> {\npublic:\n", ret.location())}));
-				ret.push_back(Token("};\n", ret.location()));
+			for (auto &c: settings.classReferences) {
+				headerString += "class " + c + ";\n";
 			}
-			else if (generationsSettings.ending == "bas") {
+			headerString += "\n";
+
+			if (settings.ending == "cls") {
+				if (settings.headerMode) {
+					ret.children.insert(ret.begin(), Group({Token("class " + settings.unitName + ": public std::enable_shared_from_this<" + settings.unitName + "> {\npublic:\n", ret.location())}));
+					ret.push_back(Token("};\n", ret.location()));
+				}
+			}
+			else if (settings.unitType == Token::Module) {
 //				unitName = string(unitName.begin(), unitName.end() - 4);
-				ret.children.insert(ret.begin(), Token("namespace " + generationsSettings.unitName + " {\n", ret.location()));
-				ret.push_back(Token("} // namespace \nusing namespace " + generationsSettings.unitName + ";\n", ret.location()));
+				ret.children.insert(ret.begin(), Token("namespace " + settings.unitName + " {\n", ret.location()));
+				ret.push_back(Token("} // namespace \nusing namespace " + settings.unitName + ";\n", ret.location()));
 			}
 
-			if (generationsSettings.headerMode) {
+			if (settings.headerMode) {
 				ret.children.insert(ret.children.begin(), Token(headerString + "#include \"vbheader.h\"\n\n", ret.location()));
 			}
 			else {
@@ -426,13 +462,13 @@ map<Token::Type, mapFunc_t*> genMap = {
 
 
 		{Token::Rnd,  [] (const Group &g) -> Group {
-			return Token("Rnd()", g.location());
+			return Token(g.strip().spelling() + "()", g.location());
 		}},
 
 
 		{Token::Line,  [] (const Group &g) -> Group {
 			Group ret;
-			if (g.size() == 1 && g.front().type() == Token::Word && currentScopeKind == TypeDeclaration::Function) {
+			if (g.size() == 1 && g.front().type() == Token::Word && settings.currentScopeKind == TypeDeclaration::Function) {
 				return Token(getIndent() + g.front().token.wordSpelling() + "();\n", g.location());
 			}
 			else if (!g.empty()) {
@@ -450,13 +486,13 @@ map<Token::Type, mapFunc_t*> genMap = {
 					return ret;
 				}
 				else {
-					auto ret = Group({Token(getIndent(), g.location()), generateCpp(g.front()), Token(currentLineEnding + "\n", g.location())});
+					auto line =  generateCpp(g.front());
 
-					if (ret.type() == Token::Remove) {
+					if (line.type() == Token::Remove) {
 						return Group(Token::Remove);
 					}
 					else {
-						return ret;
+						return Group({Token(getIndent(), g.location()), line, Token(currentLineEnding + "\n", g.location())});
 					}
 				}
 			}
@@ -482,7 +518,7 @@ map<Token::Type, mapFunc_t*> genMap = {
 			if (functionStatement) {
 				auto f = generateCpp(*functionStatement);
 
-				if (generationsSettings.headerMode) {
+				if (settings.headerMode) {
 					return Group({Token(getIndent(), g.location()), move(f)});
 				}
 
@@ -490,26 +526,26 @@ map<Token::Type, mapFunc_t*> genMap = {
 					endBlockString = "\n" + getIndent(depth + 1) + "return " + "_ret" + /*name->spelling()*/ + ";\n" + getIndent() + "}";
 				}
 				ret.push_back(move(f));
-				currentScopeKind = TypeDeclaration::Function;
+				settings.currentScopeKind = TypeDeclaration::Function;
 			}
 			else if (auto typeBlock = block.getByType(Token::TypeStatement)) {
-				if (!generationsSettings.headerMode) {
+				if (!settings.headerMode) {
 					return Group(Token::Remove);
 				}
 
 				ret.push_back(generateCpp(*typeBlock));
 				endBlockString = "};";
-				currentScopeKind = TypeDeclaration::Type;
+				settings.currentScopeKind = TypeDeclaration::Type;
 			}
 			else if (auto enumBlock = block.getByType(Token::EnumStatement)) {
-				if (!generationsSettings.headerMode) {
+				if (!settings.headerMode) {
 					return Group(Token::Remove);
 				}
 
 				ret.push_back(generateCpp(*enumBlock));
 				currentLineEnding = ",";
 				endBlockString = "};";
-				currentScopeKind = TypeDeclaration::Enum;
+				settings.currentScopeKind = TypeDeclaration::Enum;
 			}
 			else if (blockType == Token::IfStatement) {
 				ret.push_back(Token("if (", g.location()));
@@ -534,6 +570,8 @@ map<Token::Type, mapFunc_t*> genMap = {
 				ret.push_back(Token("do {\n", g.location()));
 			}
 
+			// Block content
+
 			++depth;
 			bool needsBreak = false;
 			auto insertBreak = [&ret, &g] () {
@@ -556,6 +594,8 @@ map<Token::Type, mapFunc_t*> genMap = {
 			}
 			--depth;
 
+			// End of block
+
 			auto blockEnd = g.back().front();
 			if (blockEnd.type() == Token::LoopWhileStatement) {
 				ret.push_back(Token(getIndent(), g.back().location()));
@@ -565,26 +605,33 @@ map<Token::Type, mapFunc_t*> genMap = {
 			else if (!blockEnd.empty() && blockEnd.back() == Token::TypeKeyword) {
 				ret.push_back(Token(getIndent(depth + 1) + "friend std::ostream &operator<<(std::ostream &stream, " + currentType.name + " &o) {\n", blockEnd.location()));
 				for (auto &m: currentType.members) {
-					ret.push_back(Token(getIndent(depth + 2) + "_save(o." + m + ");\n", blockEnd.location()));
+					ret.push_back(Token(getIndent(depth + 2) + "_save(stream, o." + m.strip().spelling() + ");\n", blockEnd.location()));
 				}
 				ret.push_back(Token(getIndent(depth + 2) + "return stream;\n", blockEnd.location()));
 				ret.push_back(Token(getIndent(depth + 1) + "}\n", blockEnd.location()));
 
 				ret.push_back(Token(getIndent(depth + 1) + "friend std::istream &operator>>(std::istream &stream, " + currentType.name + " &o) {\n", blockEnd.location()));
 				for (auto &m: currentType.members) {
-					ret.push_back(Token(getIndent(depth + 2) + "_save(o." + m + ");\n", blockEnd.location()));
+					ret.push_back(Token(getIndent(depth + 2) + "_load(stream, o." + m.strip().spelling() + ");\n", blockEnd.location()));
 				}
 				ret.push_back(Token(getIndent(depth + 2) + "return stream;\n", blockEnd.location()));
 				ret.push_back(Token(getIndent(depth + 1) + "}\n", blockEnd.location()));
 
-				ret.push_back(Token(getIndent(depth + 1) + currentType.name + " *operator -> () { return *this; }\n\n", blockEnd.location()));
-				ret.push_back(Token(getIndent(depth) + "}\n", blockEnd.location()));
+				ret.push_back(Token(getIndent(depth + 1) + currentType.name + " *operator -> () { return this; }\n\n", blockEnd.location()));
+				ret.push_back(Token(getIndent(depth) + "};\n", blockEnd.location()));
 				currentType.name = "";
 				currentType.members.clear();
+				settings.currentScopeKind = TypeDeclaration::None;
 			}
 			else {
 				ret.push_back(Token(getIndent() + endBlockString +"\n", g.back().location()));
 			}
+
+			if (functionStatement && settings.currentScopeKind == TypeDeclaration::Function) {
+				settings.currentScopeKind = TypeDeclaration::None;
+				currentFunction.name = "";
+			}
+
 
 			return ret;
 		}},
@@ -649,8 +696,8 @@ map<Token::Type, mapFunc_t*> genMap = {
 
 				string namespaceOrClassString = "";
 
-				if (!generationsSettings.headerMode && generationsSettings.ending != "bas") {
-					namespaceOrClassString = generationsSettings.unitName;
+				if (!settings.headerMode && settings.unitType != Token::Module) {
+					namespaceOrClassString = settings.unitName;
 					if (!namespaceOrClassString.empty()) {
 						namespaceOrClassString += "::";
 					}
@@ -664,7 +711,7 @@ map<Token::Type, mapFunc_t*> genMap = {
 						ret.push_back(generateCpp(p->front()));
 					}
 				}
-				if (generationsSettings.headerMode) {
+				if (settings.headerMode) {
 					ret.push_back(Token(");\n", g.location()));
 				}
 				else {
@@ -742,9 +789,36 @@ map<Token::Type, mapFunc_t*> genMap = {
 				throw GenerateError(g, "Not wrong amount of groups in statement");
 			}
 
+
+
+			bool showExternTag = false;
+
+
+
+			settings.currentAccessLevel = g.front().type();
+			if (settings.currentAccessLevel == Token::Dim) {
+				settings.currentAccessLevel = Token::Private;
+			}
+
 			auto type = g[1].type();
 
-//			vout << "-- type for list or something = " << g.front().typeString() << endl;
+//			cout << "accessspecifier set " << g.strip().spelling() << endl;
+
+			// Outside of function and typestatements it is possible that a
+			// variable declaration should have "extern" appended to it
+			if (currentFunction.name.empty() && currentType.name.empty()) {
+				if (settings.unitType == Token::Module) {
+//					cout << "is in module " << g.strip().spelling() << endl;
+					showExternTag = settings.headerMode;
+				}
+				else { // Class
+//					cout << "is in class " << g.strip().spelling() << endl;
+					if (!settings.headerMode) {
+						return Group(Token::Remove);
+					}
+					showExternTag = false;
+				}
+			}
 
 			if (type == Token::CommaList) {
 				auto &cl = g[1];
@@ -764,11 +838,20 @@ map<Token::Type, mapFunc_t*> genMap = {
 					ret.push_back(generateCpp(d));
 				}
 
+				if (showExternTag) {
+					ret.children.emplace(ret.begin(), Token("extern ", g.location()));
+				}
+
 				return ret;
 
 			}
 			else if(type == Token::AsClause || type == Token::TypeCharacterClause) {
 				auto ret = generateCpp(g[1]);
+
+				if (showExternTag) {
+					ret.children.emplace(ret.begin(), Token("extern ", g.location()));
+				}
+
 				return ret;
 			}
 			else if(type == Token::ConstStatement) {
@@ -832,16 +915,25 @@ map<Token::Type, mapFunc_t*> genMap = {
 		{Token::DeclareStatement, [] (const Group &g) -> Group {
 			ExpectSize(g, 6);
 			cerr << "declare statement is not implemented" << endl;
-			return Group();
+			return Group({Token("// ", g.location()), g.strip()});
 		}},
 
 
 		{Token::ConstStatement, [] (const Group &g) -> Group {
 			ExpectSize(g, 2);
+			auto accessLevel = settings.currentAccessLevel;
+			settings.currentAccessLevel = Token::Private;
+
+			// Private consts is sent to the source file public headers is sent to the header file
+			bool show = (accessLevel == Token::Private) != settings.headerMode;
+
+			if (currentFunction.name == "" && !show) {
+				return Group(Token::Remove);
+			}
 			if (auto assignment = g.getByType(Token::Assignment)) {
 				ExpectSize(*assignment, 3);
 				return Group({
-					Token("const auto ", g.location()),
+					Token("static const auto ", g.location()),
 							assignment->front(),
 							assignment->at(1),
 							generateCpp(assignment->back())});
@@ -849,7 +941,7 @@ map<Token::Type, mapFunc_t*> genMap = {
 			else if (auto defaultAsClause = g.getByType(Token::DefaultAsClause)) {
 				ExpectSize(g, 2);
 				return Group({
-					Token("const ", g.location()),
+					Token("static const ", g.location()),
 							generateCpp(*defaultAsClause)});
 			}
 			throw GenerateError(g, "const expression do not contain assignment");
@@ -958,9 +1050,18 @@ map<Token::Type, mapFunc_t*> genMap = {
 
 		{Token::AsClause, [] (const Group &g) -> Group {
 			ExpectSize(g, 3);
+
 			Group ret = g.token;
 
 			string type = generateTypeString(g.back().token);
+
+			bool isExtern = false;
+
+			if (currentFunction.name.empty() && currentType.name.empty()) {
+				if (settings.unitType == Token::Module) {
+					isExtern = settings.headerMode;
+				}
+			}
 
 			auto addMember = [] (const Token &t) {
 				// Save the name to make it possible to list it when creating type
@@ -971,12 +1072,17 @@ map<Token::Type, mapFunc_t*> genMap = {
 			};
 
 			if (g.front().type() == Token::FunctionCallOrPropertyAccessor) {
+
+
 				vout << "variable " << g.front().front().token.wordSpelling() << " is array of type " << type << endl;;
 				auto name = g.front().front().token.strip();
 				auto arguments = generateCpp(g.front().back()).spelling();
 				if (arguments == "()") {
 					// One important difference between visual basic and cpp
 					arguments = "";
+				}
+				else if (isExtern) {
+					arguments = ""; // Arguments should not be appended to variables defined as extern
 				}
 				ret.push_back(Token(
 						"VBArray <" + type + "> "
@@ -989,9 +1095,16 @@ map<Token::Type, mapFunc_t*> genMap = {
 			else if (g.back().type() == Token::NewStatement) {
 				auto newTypeName = g.back().back().token.strip();
 
-				ret.push_back(Token("shared_ptr<" + newTypeName
-						+ "> " + g.front().token.wordSpelling() + " (new "
-						+ addMember(newTypeName).wordSpelling() + ")"
+				settings.classReferences.insert(newTypeName.spelling());
+
+				string arguments = " (new "	+ newTypeName.wordSpelling() + ")";
+				if (isExtern) {
+					arguments = "";
+				}
+
+				ret.push_back(Token("std::shared_ptr<" + addMember(newTypeName).wordSpelling()
+						+ "> " + g.front().token.wordSpelling() +
+						arguments
 						, g.location()));
 			}
 			else {
@@ -1016,14 +1129,21 @@ public:
 		genMap[Token::InclusiveDisjunction] = genMap.at(Token::AdditionOrSubtraction);
 		genMap[Token::SubStatement] = genMap.at(Token::FunctionStatement);
 		genMap[Token::PutStatement] = genMap.at(Token::GetStatement);
+		genMap[Token::Timer] = genMap.at(Token::Rnd);
+		genMap[Token::Randomize] = genMap.at(Token::Rnd);
 	}
 } initClass;
 
 Group generateCpp(string filename, bool header) {
+	settings.clear();
+
 	loadTypeInformation(getDirectory(filename));
 	setFilename(filename);
 	setHeaderMode(header);
 	File f(filename);
+	currentFunction.name = "";
+	currentType.name = "";
+	currentType.members.clear();
 
 	return generateCpp(f.tokens);
 }
