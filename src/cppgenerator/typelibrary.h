@@ -9,17 +9,16 @@
 
 #include <string>
 #include <vector>
+#include "token.h"
 
 namespace vbconv {
 
+//Load type information from file or for all files in folder
+void loadTypeInformation(std::string fileOrRootFolder);
 
-void loadTypeInformation(std::string rootFolder);
-std::string getDirectory(const std::string &);
-std::string getEnding(const std::string &filename);
+Group generateTypeGroup(const class Group &vbtype);
 
-//Returns the filename without path name
-std::string getFileName(const std::string &path);
-std::string generateTypeString(const class Group &vbtype);
+std::string getUnitForSymbol(const std::string &symbol);
 
 enum class ScopeType {
 	None,
@@ -36,10 +35,12 @@ struct TypeDeclaration {
 	std::string casedName;
 	std::string name;
 	ScopeType type = ScopeType::None;
+	std::string sourceFile;
+	std::string sourceUnit;
 
 	std::vector<TypeDeclaration> members;
 
-	TypeDeclaration(std::string n, ScopeType type = ScopeType::Type);
+	TypeDeclaration(std::string n, ScopeType type, std::string sourceFile);
 	TypeDeclaration() {}
 
 	bool operator == (const std::string &n) {
@@ -48,7 +49,7 @@ struct TypeDeclaration {
 };
 
 
-TypeDeclaration* findTypeDeclaration(std::string lowerCaseTypeName);
+TypeDeclaration* findTypeDeclaration(const std::string &typeName);
 
 }  // namespace vbconv
 

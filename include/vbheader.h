@@ -13,6 +13,7 @@
 #include <string>
 #include <cmath>
 #include <fstream>
+#include <iostream>
 #include <chrono>
 
 typedef double Currency;
@@ -75,6 +76,7 @@ enum {
 	vbBlue,
 	vbWhite,
 	vbRed,
+	vbYellow,
 };
 
 

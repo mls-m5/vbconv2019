@@ -5,6 +5,7 @@
  *      Author: mattias
  */
 
+#include "common.h"
 #include "gencpp.h"
 #include "typelibrary.h"
 #include "file.h"
@@ -14,6 +15,24 @@
 
 using namespace vbconv;
 using namespace std;
+
+string createDependencyString(string base, vector<string> dependencies) {
+	string ret;
+
+	if (dependencies.empty()) {
+		return {};
+	}
+
+	ret = base + ":";
+
+	for (auto &dependency: dependencies) {
+		ret += " " + dependency;
+	}
+
+	ret += "\n";
+
+	return ret;
+}
 
 int main(int argc, char **argv) {
 	string filename;
@@ -25,6 +44,8 @@ int main(int argc, char **argv) {
 //	string filename = "originals/SD/MapMod.bas";
 //	string filename = "originals/SD/MarketMod.bas";
 //	string filename = "originals/SD/Shot.cls";
+
+	bool isReferencesSpecified = false;
 
 	if (argc > 1) {
 		filename = argv[1];
@@ -44,9 +65,18 @@ int main(int argc, char **argv) {
 			else if (arg == "--all") {
 				outputHeader = outputSource = true;
 			}
+			else if (arg == "-v") {
+				setVerboseOutput(true);
+			}
 			else if (i + 1 < argc) {
 				if (arg == "-o") {
 					outputFile = argv[++i];
+				}
+				if (arg == "--references") {
+					for (++i; i < argc; ++i) {
+						isReferencesSpecified = true;
+						loadTypeInformation(argv[i]);
+					}
 				}
 			}
 		}
@@ -57,17 +87,36 @@ int main(int argc, char **argv) {
 	else {
 		cout << "usage\n vbgen [vbfile] [options]" << endl;
 		cout << "example options" << endl;
-		cout << "--header      output c++ header (.h)" << endl;
-		cout << "--source      output c++ source (.cpp)" << endl;
-		cout << "--all         output .h and .cpp files" << endl;
-		cout << "--o           set location of output file" << endl;
-		cout << "--o -         output to std out" << endl;
+		cout << "--header            output c++ header (.h)" << endl;
+		cout << "--source            output c++ source (.cpp)" << endl;
+		cout << "--all               output .h and .cpp files" << endl;
+		cout << "-o                  set location of output file" << endl;
+		cout << "-o -                output to std out" << endl;
+		cout << "-v                  show extra text output " << endl;
+		cout << "--references [...]  specify which objects to link together (standard is all files in folder)" << endl;
 		return 0;
 	}
 
+	vout << "Creating cpp file for " << filename << endl;
+
+	if (!isReferencesSpecified) {
+		loadTypeInformation(getDirectory(filename));
+	}
+	else {
+		loadTypeInformation(filename);
+	}
+
+	vector <Group *> referencedFunctions;
+
 	if (outputHeader) {
 		auto output = generateCpp(filename, true);
-		if (output == "-" || (outputHeader && outputSource)) {
+
+		auto f1 = output.getByType(Token::CVoidFunction);
+		referencedFunctions.insert(referencedFunctions.end(), f1);
+		auto f2 = output.getByType(Token::CFunctionWithType);
+		referencedFunctions.insert(referencedFunctions.end(), f2);
+
+		if (outputFile == "-" || (outputHeader && outputSource)) {
 			cout << output.spelling() << endl;
 		}
 		else {
@@ -78,7 +127,13 @@ int main(int argc, char **argv) {
 
 	if (outputSource) {
 		auto output = generateCpp(filename, false);
-		if (output == "-") {
+
+		auto f1 = output.getByType(Token::CVoidFunction);
+		referencedFunctions.insert(referencedFunctions.end(), f1);
+		auto f2 = output.getByType(Token::CFunctionWithType);
+		referencedFunctions.insert(referencedFunctions.end(), f2);
+
+		if (outputFile == "-") {
 			cout << output.spelling() << endl;
 		}
 		else {
@@ -86,4 +141,66 @@ int main(int argc, char **argv) {
 			file << output.spelling() << endl;
 		}
 	}
+
+
+	vector<Group> &extractedSymbols = getExtractedSymbols();
+
+
+
+	ofstream dependencyFile;
+
+	if (outputFile != "-") {
+		dependencyFile.open(outputFile + ".d");
+	}
+
+
+	auto printSymbols = [&](Group &g, ostream &stream, string name) {
+		// Creates a header for a single type or a enum
+		stream << "#pragma once" << endl;
+		stream << "#include \"vbheader.h\"" << endl;
+		stream << endl;
+		vector<string> dependencies;
+		for (auto r: g.getAllByType(Token::CReference)) {
+			auto typeDeclaration = findTypeDeclaration(r->token);
+			if (typeDeclaration) {
+				auto unitName = typeDeclaration->sourceUnit;
+				vout << r->spelling() << " in " << unitName << endl;
+				auto dependencyName = toLower(unitName + "-" + r->spelling()) + ".h";
+				stream << "#include \"" + dependencyName + "\"\n" << endl;
+				dependencies.push_back(dependencyName);
+			}
+		}
+		stream << g.spelling() << endl;
+		if (dependencyFile.is_open() && !name.empty()) {
+			dependencyFile << createDependencyString(name, dependencies);
+		}
+	};
+
+	if (outputFile == "-") {
+		vout << "headerfiles:" << endl;
+		for (auto &symbol: extractedSymbols) {
+			printSymbols(symbol, cout, "");
+		}
+	}
+	else {
+		auto unitName = getUnitName(outputFile);
+		std::vector<string> symbolStrings = getUnitReferences();
+		symbolStrings.reserve(symbolStrings.size() + extractedSymbols.size());
+		for (auto &symbol: extractedSymbols) {
+			auto symbolNameGroup = symbol.getByType(Token::CSymbolName);
+			auto symbolOutputFile = getDirectory(outputFile) + unitName + "-" +  toLower(symbolNameGroup->spelling()) + ".h";
+			vout << "outputting to file " << symbolOutputFile << endl;
+			ofstream file(symbolOutputFile);
+			if (!file.is_open()) {
+				cerr << "could not open file " << symbolOutputFile << endl;
+			}
+			printSymbols(symbol, file, symbolOutputFile);
+
+			symbolStrings.push_back(symbolOutputFile);
+			symbolStrings.push_back(filename);
+		}
+
+		dependencyFile << createDependencyString(outputFile, symbolStrings) << endl;
+	}
+
 }

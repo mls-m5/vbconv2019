@@ -13,8 +13,11 @@
 #include <dirent.h>
 #include <vector>
 #include <iostream>
+#include <fstream>
 #include <sys/stat.h>
 #include <algorithm>
+
+#include "common.h"
 
 using namespace std;
 
@@ -22,8 +25,6 @@ namespace vbconv {
 
 
 static std::vector<TypeDeclaration> declaredTypes = {};
-
-
 
 
 vector<string> listFiles(const string &directory) {
@@ -72,43 +73,57 @@ vector<string> findAllFilesRecursive(const string &directory) {
 	return ret;
 }
 
-string getEnding(const string &filename) {
-	for (int i = filename.size() - 1; i >= 0; --i) {
-		if (filename[i] == '/' || filename [i] == '\\') {
-			return "";
+void fastParseFileForDeclarations(string filename) {
+	fstream file(filename);
+
+	string word;
+	string prevWord;
+	auto activeUnitName = getCurrentUnitName();
+	auto unitName = getUnitName(filename);
+	bool includePrivate = unitName == activeUnitName;
+//	bool includePrivate = true;
+
+	while (file >> word) {
+		transform(word.begin(), word.end(), word.begin(), ::tolower);
+
+		if ((word == "type" || word == "enum")  && prevWord != "end") {
+
+			ScopeType type;
+			if (word == "type") {
+				type = ScopeType::Type;
+			}
+			else {
+				type = ScopeType::Enum;
+			}
+			file >> word;
+			if (!includePrivate && prevWord != "public") {
+				vout << "skipping private type " << word << endl;
+				continue;
+			}
+			vout << "in " << filename << " " << " found definition of " << word << endl;
+			declaredTypes.emplace_back(word, type, filename);
 		}
-		else if (filename[i] == '.') {
-			return string(filename.begin() + (i + 1), filename.end());
+		if ((word == "sub" || word == "function") && (prevWord != "end" && prevWord != "exit")) {
+			file >> word;
+			if (!includePrivate && prevWord != "public") {
+				vout << "skipping private function " << word << endl;
+				continue;
+			}
+			vout << "in " << filename << " " << " found definition of function " << word << endl;
+			declaredTypes.emplace_back(word, ScopeType::Function, filename);
 		}
+		swap(word, prevWord);
 	}
-	return "";
 }
 
-string getFileName(const string &path) {
-	for (int i = path.size() - 1; i >= 0; --i) {
-		if (path[i] == '/' || path [i] == '\\') {
-			return string(path.begin() + i + 1, path.end());
-		}
+void loadTypeInformation(string fileOrRootFolder) {
+	vector<string> files;
+	if (isDirectory(fileOrRootFolder)) {
+		files = findAllFilesRecursive(fileOrRootFolder);
 	}
-	return path;
-}
-
-string getDirectory(const string &path) {
-	for (int i = path.size() - 1; i >= 0; --i) {
-		if (path[i] == '/' || path [i] == '\\') {
-			return string(path.begin(), path.begin() + i);
-		}
+	else {
+		files = {fileOrRootFolder};
 	}
-	return path;
-}
-
-string toLower(string str) {
-	transform(str.begin(), str.end(), str.begin(), ::tolower);
-	return str;
-}
-
-void loadTypeInformation(string rootFolder) {
-	auto files = findAllFilesRecursive(rootFolder);
 
 	for (auto &f: files) {
 		auto ending = toLower(getEnding(f));
@@ -119,53 +134,86 @@ void loadTypeInformation(string rootFolder) {
 		vout << "loaded file with ending " << ending << " --> " << getFileName(f) << endl;
 		if (ending == "cls" || ending == "frm") {
 			vout << "found class file for class " << strippedName << endl;
-			declaredTypes.emplace_back(strippedName, ScopeType::Class);
+			declaredTypes.emplace_back(strippedName, ScopeType::Class, f);
+			fastParseFileForDeclarations(f);
 		}
 		else if (ending == "bas") {
 			vout << "found module " << strippedName << endl;
-			declaredTypes.emplace_back(strippedName, ScopeType::Module);
+			declaredTypes.emplace_back(strippedName, ScopeType::Module, f);
+			fastParseFileForDeclarations(f);
 		}
 	}
 }
 
-TypeDeclaration::TypeDeclaration(std::string n, ScopeType type) :
-		casedName(n), name(n.size(), ' '), type(type) {
-	std::transform(casedName.begin(), casedName.end(), name.begin(), ::tolower);
+
+std::string getUnitForSymbol(const std::string &symbol) {
+	auto lcase = symbol;
+	transform(lcase.begin(), lcase.end(), lcase.begin(), ::tolower);
+	for (auto &type: declaredTypes) {
+		if (type.name == lcase) {
+			return type.sourceUnit;
+		}
+	}
+	cerr << "Undefined reference to " << symbol << endl;
+	return "";
 }
 
-TypeDeclaration* findTypeDeclaration(std::string lowerCaseTypeName) {
+
+
+TypeDeclaration::TypeDeclaration(std::string n, ScopeType type, std::string source) :
+		casedName(stripNonAlphaNumeric(n)), name(casedName.size(), ' '), type(type), sourceFile(source) {
+
+	std::transform(casedName.begin(), casedName.end(), name.begin(), ::tolower);
+
+	sourceUnit = getUnitName(source);
+
+	vout << "Added reference to " << casedName << " in unit " << sourceUnit << " type " << (int)type << endl;
+}
+
+
+TypeDeclaration* findTypeDeclaration(const std::string &typeName) {
+	string lowerCaseTypeName = toLower(typeName);
 	for (auto& t : declaredTypes) {
 		if (t == lowerCaseTypeName) {
 			return &t;
 		}
 	}
+
 	return nullptr;
 }
 
-string generateTypeString(const Group &vbtype) {
-	auto type = vbtype.type();
+Group generateTypeGroup(const Group &vbtype) {
+	Token::Location location = vbtype.location();
 
-	switch (type) {
+	// Helper function to create a token fast
+	auto ct = [location](string str, Token::Type type = Token::None) {
+		return Token(str, location, type);
+	};
+
+	switch (vbtype.type()) {
 	case Token::Integer:
-		return "int";
+		return ct("int");
 		break;
 	case Token::Long:
-		return "long";
+		return ct("long");
 		break;
 	case Token::At:
-		return "long double";
+		return ct("long double");
 		break;
 	case Token::Single:
-		return "float";
+		return ct("float");
 		break;
 	case Token::Double:
-		return "double";
+		return ct("double");
 		break;
 	case Token::Boolean:
-		return "bool";
+		return ct("bool");
+		break;
+	case Token::Currency:
+		return ct("Currency");
 		break;
 	case Token::String:
-		return "std::string";
+		return ct("std::string");
 		break;
 
 	default:
@@ -178,15 +226,16 @@ string generateTypeString(const Group &vbtype) {
 			vout << "found class " << typeToken.wordSpelling() << " creating shared_ptr" << endl;
 
 			addReferenceToClass(typeDecl->casedName);
-			return "std::shared_ptr<" + typeDecl->casedName + ">";
+			return Group({ct("std::shared_ptr<"), ct(typeDecl->casedName, Token::CReference), ct(">")});
 		}
 		else {
-			return typeDecl->casedName;
+			addReferenceToType(typeDecl->casedName);
+			return ct(typeDecl->casedName, Token::CReference);
 		}
 	}
 	else {
 		vout << "could not find type with name " << typeToken.wordSpelling() << endl;
-		return typeToken.wordSpelling();
+		return ct(typeToken.wordSpelling(), Token::CReference);
 	}
 }
 

@@ -14,6 +14,7 @@
 
 
 #include "gencpp.h"
+#include "common.h"
 #include "typelibrary.h"
 #include <file.h>
 #include <iostream>
@@ -46,7 +47,6 @@ struct {
 	string name = "";
 } currentType;
 
-
 static struct {
 	bool headerMode = true;
 	string filename;
@@ -57,20 +57,30 @@ static struct {
 
 	Token::Type currentAccessLevel = Token::Private;
 
+	bool extractTypesAndEnums = true;
+	std::vector<Group> extractedSymbols;
+
 	set<string> classReferences;
+	set<string> typeReferences;
+	set<string> functionReferences;
 
 	ScopeType currentScopeType = ScopeType::None;
 
-	void clear() {
-		classReferences.clear();
-		currentAccessLevel = Token::Private;
-		ending.clear();
-		unitName.clear();
-		filename.clear();
-		currentScopeType = ScopeType::None;
-		refType = Token::ByRef;
-	}
+	std::vector<string > unitReferences;
 
+	void clear() {
+//		classReferences.clear();
+//		currentAccessLevel = Token::Private;
+//		ending.clear();
+//		unitName.clear();
+//		filename.clear();
+//		currentScopeType = ScopeType::None;
+//		refType = Token::ByRef;
+
+		typedef remove_reference<decltype(*this)>::type thisType;
+
+		*this = thisType();
+	}
 } settings;
 
 //A class that sets a value and then set it to another value upon termination
@@ -88,6 +98,7 @@ public:
 		this->setting = &setting;
 	}
 	SettingGuard(T &setting, T before): SettingGuard(setting, before, setting) {}
+	SettingGuard(T &setting): setting(&setting), after(setting) {}
 
 	~SettingGuard() {
 		if (setting) {
@@ -95,9 +106,13 @@ public:
 		}
 	}
 
-	T after;
 	T *setting = 0;
+	T after;
 };
+
+void setVerboseOutput(bool state) {
+	verboseOutput = state;
+}
 
 template <typename T>
 T makeGuard(T &setting, T before, T after) {
@@ -106,6 +121,14 @@ T makeGuard(T &setting, T before, T after) {
 
 void setHeaderMode(bool mode) {
 	settings.headerMode = mode;
+}
+
+string getCurrentUnitName() {
+	return settings.unitName;
+}
+
+std::vector<std::string> &getUnitReferences() {
+	return settings.unitReferences;
 }
 
 void setFilename(string filename) {
@@ -122,6 +145,19 @@ void setFilename(string filename) {
 void addReferenceToClass(std::string className) {
 	settings.classReferences.insert(className);
 }
+
+void addReferenceToType(std::string typeName) {
+	settings.typeReferences.insert(typeName);
+}
+
+void addReferenceToFunction(std::string fname) {
+	settings.functionReferences.insert(fname);
+}
+
+std::vector<Group> &getExtractedSymbols() {
+	return settings.extractedSymbols;
+}
+
 
 string getIndent(int d = -1) {
 	if (d < 0) {
@@ -180,7 +216,6 @@ map<Token::Type, mapFunc_t*> genMap = {
 
 			string headerString =  "// Generated with Lasersköld vb6conv cpp-generator\n\n";
 
-
 			if (settings.headerMode) {
 				depth = 1;
 				headerString += "#pragma once\n\n";
@@ -192,14 +227,62 @@ map<Token::Type, mapFunc_t*> genMap = {
 
 			for (auto &c: g) {
 				auto l = generateCpp(c);
+				if (settings.extractTypesAndEnums) {
+					if (l == Token::CPublicType || l == Token::CPublicEnum) {
+						settings.extractedSymbols.push_back(move(l));
+//						settings.extractedSymbols.back().printRecursive(cout);
+						continue;
+					}
+				}
+
 				if (l != Token::Remove) {
 					ret.push_back(move(l));
 				}
 			}
 
-			for (auto &c: settings.classReferences) {
-				headerString += "class " + c + ";\n";
+			headerString += "// references to: \n" ;
+			set<string> unitReferences;
+
+			auto addRef = [&] (string ref) {
+				auto unit = getUnitForSymbol(ref);
+				if (unit.empty()) {
+					return;
+				}
+				auto filename = unit;
+				if (settings.extractTypesAndEnums) {
+					filename = unit + "-" + ref;
+				}
+				unitReferences.insert(filename);
+			};
+
+			for (auto &ref: settings.classReferences) {
+//				addRef(ref);
+				unitReferences.insert(ref);
 			}
+			for (auto &ref: settings.typeReferences) {
+				addRef(ref);
+			}
+
+			for (auto &ref: settings.functionReferences) {
+				addRef(ref);
+			}
+
+			unitReferences.erase("");
+			unitReferences.erase(settings.unitName);
+
+			vout << "references to units" << endl;
+			for (auto u: unitReferences) {
+				auto headerName = toLower(u) + ".h";
+				headerString += "#include \"" + headerName + "\"\n";
+				vout << u << endl;
+
+				settings.unitReferences.push_back(headerName);
+			}
+
+
+//			for (auto &c: settings.classReferences) {
+//				headerString += "class " + c + ";\n";
+//			}
 			headerString += "\n";
 
 			if (settings.ending == "cls") {
@@ -407,6 +490,9 @@ map<Token::Type, mapFunc_t*> genMap = {
 			else if (g.back().type() == Token::Parenthesis) {
 				//Function call:
 				auto functionName = g.front();
+				if (functionName == Token::Word) {
+					addReferenceToFunction(functionName.strip().spelling());
+				}
 				if (functionName != Token::Word ||
 						(functionName.type() == Token::Word && functionName.token.wordSpelling() != currentFunction.name)) {
 					// Prevent function name to be replaced with _ret in recursion
@@ -548,7 +634,20 @@ map<Token::Type, mapFunc_t*> genMap = {
 				functionStatement =  g.front().getByType(Token::FunctionStatement);
 			}
 
+			bool isPublic = false;
+			if (0) {
+				if (auto specifier = block.getByType(Token::AccessSpecifier)) {
+					if (specifier->front().type() == Token::Public) {
+						isPublic = true;
+					}
+				}
+			}
+			else {
+				isPublic = true; // Todo: Maybe fix this in the future
+			}
+
 			SettingGuard<ScopeType> guard(settings.currentScopeType, settings.currentScopeType);
+			SettingGuard<string> guard2(currentLineEnding);
 
 			if (functionStatement) {
 				auto f = generateCpp(*functionStatement);
@@ -570,6 +669,11 @@ map<Token::Type, mapFunc_t*> genMap = {
 				}
 
 				ret.push_back(generateCpp(*typeBlock));
+
+				if (isPublic) {
+					ret.type(Token::CPublicType);
+				}
+
 				endBlockString = "};";
 				settings.currentScopeType = ScopeType::Type;
 			}
@@ -579,6 +683,11 @@ map<Token::Type, mapFunc_t*> genMap = {
 				}
 
 				ret.push_back(generateCpp(*enumBlock));
+
+				if (isPublic) {
+					ret.type(Token::CPublicEnum);
+				}
+
 				currentLineEnding = ",";
 				endBlockString = "};";
 				settings.currentScopeType = ScopeType::Enum;
@@ -655,7 +764,7 @@ map<Token::Type, mapFunc_t*> genMap = {
 
 				ret.push_back(Token(getIndent(depth + 1) + currentType.name + " *operator -> () { return this; }\n\n", blockEnd.location()));
 				ret.push_back(Token(getIndent(depth) + "};\n", blockEnd.location()));
-				currentType.name = "";
+//				currentType.name = "";
 				currentType.members.clear();
 				settings.currentScopeType = ScopeType::None;
 			}
@@ -719,14 +828,14 @@ map<Token::Type, mapFunc_t*> genMap = {
 			if (auto name = g.getByType(Token::Word)) {
 				Group ret;
 				vout << "function with name " << name->spelling() << endl;
-				auto type = "void"s;
+				Group type = Token("void", g.location());
 				ret.type(Token::CVoidFunction);
 
 				if (g.back().type() == Token::AsClause) {
 					auto asClause = g.back();
 					auto typetoken = asClause.back();
-					type = generateTypeString(typetoken.token);
-					vout << "and with type " << type << endl;
+					type = generateTypeGroup(typetoken.token);
+					vout << "and with type " << type.spelling() << endl;
 					ret.type(Token::CFunctionWithType);
 
 					currentFunction.name = name->token.wordSpelling();
@@ -741,8 +850,10 @@ map<Token::Type, mapFunc_t*> genMap = {
 					}
 				}
 
-				ret.push_back(Token(type + " " + namespaceOrClassString
-						+ name->token.wordSpelling() +  "(", g.location()));
+				ret.push_back(type);
+				ret.push_back(Token(" " + namespaceOrClassString, g.location()));
+				ret.push_back(Token(name->token.wordSpelling(), g.location(), Token::CSymbolName));
+				ret.push_back(Token("(", g.location()));
 
 				if (auto p = g.getByType(Token::Parenthesis)) {
 					if (p->size() > 0) {
@@ -754,8 +865,10 @@ map<Token::Type, mapFunc_t*> genMap = {
 				}
 				else {
 					ret.push_back(Token(") {\n", g.location()));
-					if (type != "void") {
-						ret.push_back(Token(getIndent(depth + 1) + type + " _ret" + ";\n", g.location()));
+					if (type.spelling() != "void") {
+						ret.push_back(Token(getIndent(depth + 1), g.location()));
+						ret.push_back(type);
+						ret.push_back(Token(" _ret"s + ";\n", g.location()));
 					}
 				}
 
@@ -848,7 +961,7 @@ map<Token::Type, mapFunc_t*> genMap = {
 				else { // Class
 //					cout << "is in class " << g.strip().spelling() << endl;
 					if (!settings.headerMode) {
-						cout << "removing " << g.strip().spelling() << endl;
+//						cout << "removing " << g.strip().spelling() << endl;
 						return Group(Token::Remove);
 					}
 					showExternTag = false;
@@ -936,14 +1049,20 @@ map<Token::Type, mapFunc_t*> genMap = {
 			auto name = g.back().token.wordSpelling();
 			currentType.name = name;
 			currentType.members.clear();
-			return Group({Token("struct " + name + " {\n", g.location())});
+			return Group({Token("struct ", g.location()),
+				Token(name, g.location(), Token::CSymbolName),
+				Token(" {\n", g.location())
+			});
 		}},
 
 
 		{Token::EnumStatement, [] (const Group &g) -> Group {
 			ExpectSize(g, 2);
 			auto name = g.back().token.wordSpelling();
-			return Group({Token("enum " + name + " {\n", g.location())});
+			return Group({Token("enum ", g.location()),
+				Token(name, g.location(), Token::CSymbolName),
+				Token(" {\n", g.location())
+			});
 		}},
 
 
@@ -1099,7 +1218,7 @@ map<Token::Type, mapFunc_t*> genMap = {
 
 			Group ret = g.token;
 
-			string type = generateTypeString(g.back().token);
+			auto type = generateTypeGroup(g.back().token);
 
 			bool isExtern = false;
 
@@ -1109,18 +1228,20 @@ map<Token::Type, mapFunc_t*> genMap = {
 				}
 			}
 
-			auto addMember = [] (const Token &t) {
+			auto prepareMember = [] (const Token &t) {
 				// Save the name to make it possible to list it when creating type
 				if (!currentType.name.empty()) {
 					currentType.members.push_back(t);
 				}
-				return t;
+				auto ret = t;
+				ret.type = Token::CPrivateSymbol;
+				return ret;
 			};
 
 			if (g.front().type() == Token::FunctionCallOrPropertyAccessor) {
 
 
-				vout << "variable " << g.front().front().token.wordSpelling() << " is array of type " << type << endl;;
+				vout << "variable " << g.front().front().token.wordSpelling() << " is array of type " << type.spelling() << endl;;
 				auto name = g.front().front().token.strip();
 				auto arguments = generateCpp(g.front().back()).spelling();
 				if (arguments == "()") {
@@ -1130,10 +1251,11 @@ map<Token::Type, mapFunc_t*> genMap = {
 				else if (isExtern) {
 					arguments = ""; // Arguments should not be appended to variables defined as extern
 				}
+				ret.push_back(Token("VBArray <", g.location()));
+				ret.push_back(type);
+				ret.push_back(Token("> ",g.location()));
 				ret.push_back(Token(
-						"VBArray <" + type + "> ",g.location()));
-				ret.push_back(Token(
-						addMember(name).wordSpelling()
+						prepareMember(name).wordSpelling()
 						+ arguments
 						, g.location()));
 			}
@@ -1147,15 +1269,16 @@ map<Token::Type, mapFunc_t*> genMap = {
 					arguments = "";
 				}
 
-				ret.push_back(Token("std::shared_ptr<" + addMember(newTypeName).wordSpelling()
+				ret.push_back(Token("std::shared_ptr<" + prepareMember(newTypeName).wordSpelling()
 						+ "> ", g.location()));
 				ret.push_back(Token(g.front().token.wordSpelling() +
 						arguments
 						, g.location()));
 			}
 			else {
-				ret.push_back(Token(type + " ", g.location()));
-				ret.push_back(Token(addMember(g.front().token.strip()).wordSpelling(), g.location()));
+				ret.push_back(type);
+				ret.push_back(Token(" ", g.location()));
+				ret.push_back(prepareMember(g.front().token.strip()));
 			}
 
 			if (settings.currentScopeType == ScopeType::FunctionArguments) {
@@ -1190,7 +1313,6 @@ public:
 Group generateCpp(string filename, bool header) {
 	settings.clear();
 
-	loadTypeInformation(getDirectory(filename));
 	setFilename(filename);
 	setHeaderMode(header);
 	File f(filename);

@@ -156,6 +156,7 @@ tn(Double)
 tn(Byte)
 tn(Integer)
 tn(Boolean)
+tn(Currency)
 tn(String)
 td(TypesEnd)
 
@@ -226,3 +227,12 @@ ts(CDefaultArgument)
 ts(CFunctionWithType)
 ts(CVoidFunction)
 ts(CCaseStatement)
+ts(CPublicType)
+ts(CPublicEnum)
+ts(CPublicFunction)
+ts(CPrivateSymbol)
+ts(CSymbolName) //The name of teh active object
+ts(CReference) //Reference to another file
+
+
+

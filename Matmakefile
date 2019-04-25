@@ -20,6 +20,12 @@ cppgen.exe = %
 cppgen.flags += -W -Wall -Wno-unused-parameter -Wno-sign-compare #-Werror
 cppgen.src = src/*.cpp src/cppgenerator/*.cpp
 
+
+vbmake.exe = %
+vbmake.src = src/vbmake/*.cpp
+vbmake.flags += -W -Wall -Wno-unused-parameter -Wno-sign-compare #-Werror
+
+
 ## Debug target:
 # main_debug.inherit = main  # copy all settings from main
 # main_debug.flags += -g -O0

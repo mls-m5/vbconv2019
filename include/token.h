@@ -111,12 +111,6 @@ public:
 		return *this;
 	}
 
-	Token() {};
-	Token(const Token &) = default;
-	Token(Token &&) = default;
-	Token &operator = (const Token &t) = default;
-	Token &operator = (Token &&t) = default;
-	Token(const string str, Location location): string(str), _location(location) {}
 
 
 #define tn(t) t, //Macros to process the typemacros.h
@@ -139,6 +133,15 @@ public:
 #undef tl
 #undef td
 #undef ts
+
+	Token() {};
+	Token(const Token &) = default;
+	Token(Token &&) = default;
+	Token &operator = (const Token &t) = default;
+	Token &operator = (Token &&t) = default;
+	Token(const string str, Location location): string(str), _location(location) {}
+	Token(const string str, Location location, enum Type type):
+		string(str), _location(location), type(type) {}
 
 	void toLower() {
 		if (type == Literal) {
@@ -289,6 +292,24 @@ public:
 
 		return *this;
 	}
+
+
+	std::vector<const Group *> getAllByType(Token::Type type) const {
+		std::vector<const Group*> ret;
+		if (token.type == type || endToken.type == type) {
+			ret.push_back(this);
+		}
+		for (auto &c: children) {
+			auto r = c.getAllByType(type);
+			ret.reserve(ret.size() + r.size());
+			if (!r.empty()) {
+				ret.insert(ret.begin(), r.begin(), r.end());
+			}
+		}
+		return ret;
+	}
+
+
 
 	// Get the first token with the specified type
 	const Group *getByType(Token::Type type, bool recursive = true) const {

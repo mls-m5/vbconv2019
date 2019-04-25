@@ -22,9 +22,18 @@ void setHeaderMode(bool mode);
 // Set the file name of the current code unit
 void setFilename(std::string filename);
 
-void addReferenceToClass(std::string className);
+std::string getCurrentUnitName();
 
+void addReferenceToClass(std::string className);
+void addReferenceToType(std::string className);
+
+void setVerboseOutput(bool state);
 extern bool verboseOutput;
+
+// Get types and enums that is supposed to be extracted to
+// separate files
+std::vector<Group> &getExtractedSymbols();
+std::vector<std::string> &getUnitReferences();
 
 }
 
