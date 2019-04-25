@@ -119,16 +119,16 @@ void loadTypeInformation(string rootFolder) {
 		vout << "loaded file with ending " << ending << " --> " << getFileName(f) << endl;
 		if (ending == "cls" || ending == "frm") {
 			vout << "found class file for class " << strippedName << endl;
-			declaredTypes.emplace_back(strippedName, TypeDeclaration::Class);
+			declaredTypes.emplace_back(strippedName, ScopeType::Class);
 		}
 		else if (ending == "bas") {
 			vout << "found module " << strippedName << endl;
-			declaredTypes.emplace_back(strippedName, TypeDeclaration::Module);
+			declaredTypes.emplace_back(strippedName, ScopeType::Module);
 		}
 	}
 }
 
-TypeDeclaration::TypeDeclaration(std::string n, Kind type) :
+TypeDeclaration::TypeDeclaration(std::string n, ScopeType type) :
 		casedName(n), name(n.size(), ' '), type(type) {
 	std::transform(casedName.begin(), casedName.end(), name.begin(), ::tolower);
 }
@@ -174,7 +174,7 @@ string generateTypeString(const Group &vbtype) {
 
 	auto typeToken = vbtype.token;
 	if (auto typeDecl = findTypeDeclaration(typeToken)) {
-		if (typeDecl->type == TypeDeclaration::Class) {
+		if (typeDecl->type == ScopeType::Class) {
 			vout << "found class " << typeToken.wordSpelling() << " creating shared_ptr" << endl;
 
 			addReferenceToClass(typeDecl->casedName);

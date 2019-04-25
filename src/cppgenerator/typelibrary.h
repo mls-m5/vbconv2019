@@ -21,25 +21,25 @@ std::string getEnding(const std::string &filename);
 std::string getFileName(const std::string &path);
 std::string generateTypeString(const class Group &vbtype);
 
+enum class ScopeType {
+	None,
+	Type,
+	Enum,
+	Class,
+	Module,
+	Array,
+	Function,
+	FunctionArguments,
+};
 
 struct TypeDeclaration {
-	enum Kind {
-		None,
-		Type,
-		Enum,
-		Class,
-		Module,
-		Array,
-		Function,
-	};
-
 	std::string casedName;
 	std::string name;
-	Kind type = None;
+	ScopeType type = ScopeType::None;
 
 	std::vector<TypeDeclaration> members;
 
-	TypeDeclaration(std::string n, Kind type = Kind::Type);
+	TypeDeclaration(std::string n, ScopeType type = ScopeType::Type);
 	TypeDeclaration() {}
 
 	bool operator == (const std::string &n) {

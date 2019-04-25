@@ -53,12 +53,13 @@ static struct {
 	string unitName;
 	string ending;
 	Token::Type unitType = Token::Class; //Can be Module or Class
+	Token::Type refType = Token::ByRef; // If funciton argumenst is called by reference or by value
 
 	Token::Type currentAccessLevel = Token::Private;
 
 	set<string> classReferences;
 
-	TypeDeclaration::Kind currentScopeKind = TypeDeclaration::None;
+	ScopeType currentScopeType = ScopeType::None;
 
 	void clear() {
 		classReferences.clear();
@@ -66,10 +67,42 @@ static struct {
 		ending.clear();
 		unitName.clear();
 		filename.clear();
-		currentScopeKind = TypeDeclaration::None;
+		currentScopeType = ScopeType::None;
+		refType = Token::ByRef;
 	}
 
 } settings;
+
+//A class that sets a value and then set it to another value upon termination
+template <typename T>
+class SettingGuard {
+public:
+	SettingGuard(SettingGuard &&g) {
+		setting = g.setting;
+		g.setting = 0;
+		after = g.after;
+	}
+	SettingGuard(T &setting, T before, T after) {
+		setting = before;
+		this->after = after;
+		this->setting = &setting;
+	}
+	SettingGuard(T &setting, T before): SettingGuard(setting, before, setting) {}
+
+	~SettingGuard() {
+		if (setting) {
+			*setting = after;
+		}
+	}
+
+	T after;
+	T *setting = 0;
+};
+
+template <typename T>
+T makeGuard(T &setting, T before, T after) {
+	return SettingGuard<T>(setting, before, after);
+}
 
 void setHeaderMode(bool mode) {
 	settings.headerMode = mode;
@@ -468,7 +501,7 @@ map<Token::Type, mapFunc_t*> genMap = {
 
 		{Token::Line,  [] (const Group &g) -> Group {
 			Group ret;
-			if (g.size() == 1 && g.front().type() == Token::Word && settings.currentScopeKind == TypeDeclaration::Function) {
+			if (g.size() == 1 && g.front().type() == Token::Word && settings.currentScopeType == ScopeType::Function) {
 				return Token(getIndent() + g.front().token.wordSpelling() + "();\n", g.location());
 			}
 			else if (!g.empty()) {
@@ -515,8 +548,11 @@ map<Token::Type, mapFunc_t*> genMap = {
 				functionStatement =  g.front().getByType(Token::FunctionStatement);
 			}
 
+			SettingGuard<ScopeType> guard(settings.currentScopeType, settings.currentScopeType);
+
 			if (functionStatement) {
 				auto f = generateCpp(*functionStatement);
+
 
 				if (settings.headerMode) {
 					return Group({Token(getIndent(), g.location()), move(f)});
@@ -526,7 +562,7 @@ map<Token::Type, mapFunc_t*> genMap = {
 					endBlockString = "\n" + getIndent(depth + 1) + "return " + "_ret" + /*name->spelling()*/ + ";\n" + getIndent() + "}";
 				}
 				ret.push_back(move(f));
-				settings.currentScopeKind = TypeDeclaration::Function;
+				settings.currentScopeType = ScopeType::Function;
 			}
 			else if (auto typeBlock = block.getByType(Token::TypeStatement)) {
 				if (!settings.headerMode) {
@@ -535,7 +571,7 @@ map<Token::Type, mapFunc_t*> genMap = {
 
 				ret.push_back(generateCpp(*typeBlock));
 				endBlockString = "};";
-				settings.currentScopeKind = TypeDeclaration::Type;
+				settings.currentScopeType = ScopeType::Type;
 			}
 			else if (auto enumBlock = block.getByType(Token::EnumStatement)) {
 				if (!settings.headerMode) {
@@ -545,7 +581,7 @@ map<Token::Type, mapFunc_t*> genMap = {
 				ret.push_back(generateCpp(*enumBlock));
 				currentLineEnding = ",";
 				endBlockString = "};";
-				settings.currentScopeKind = TypeDeclaration::Enum;
+				settings.currentScopeType = ScopeType::Enum;
 			}
 			else if (blockType == Token::IfStatement) {
 				ret.push_back(Token("if (", g.location()));
@@ -621,14 +657,14 @@ map<Token::Type, mapFunc_t*> genMap = {
 				ret.push_back(Token(getIndent(depth) + "};\n", blockEnd.location()));
 				currentType.name = "";
 				currentType.members.clear();
-				settings.currentScopeKind = TypeDeclaration::None;
+				settings.currentScopeType = ScopeType::None;
 			}
 			else {
 				ret.push_back(Token(getIndent() + endBlockString +"\n", g.back().location()));
 			}
 
-			if (functionStatement && settings.currentScopeKind == TypeDeclaration::Function) {
-				settings.currentScopeKind = TypeDeclaration::None;
+			if (functionStatement && settings.currentScopeType == ScopeType::Function) {
+				settings.currentScopeType = ScopeType::None;
 				currentFunction.name = "";
 			}
 
@@ -678,6 +714,8 @@ map<Token::Type, mapFunc_t*> genMap = {
 
 
 		{Token::FunctionStatement,  [] (const Group &g) -> Group {
+			SettingGuard<ScopeType> settingGuard(settings.currentScopeType, ScopeType::FunctionArguments);
+
 			if (auto name = g.getByType(Token::Word)) {
 				Group ret;
 				vout << "function with name " << name->spelling() << endl;
@@ -789,11 +827,7 @@ map<Token::Type, mapFunc_t*> genMap = {
 				throw GenerateError(g, "Not wrong amount of groups in statement");
 			}
 
-
-
 			bool showExternTag = false;
-
-
 
 			settings.currentAccessLevel = g.front().type();
 			if (settings.currentAccessLevel == Token::Dim) {
@@ -806,7 +840,7 @@ map<Token::Type, mapFunc_t*> genMap = {
 
 			// Outside of function and typestatements it is possible that a
 			// variable declaration should have "extern" appended to it
-			if (currentFunction.name.empty() && currentType.name.empty()) {
+			if (settings.currentScopeType == ScopeType::None) {
 				if (settings.unitType == Token::Module) {
 //					cout << "is in module " << g.strip().spelling() << endl;
 					showExternTag = settings.headerMode;
@@ -814,6 +848,7 @@ map<Token::Type, mapFunc_t*> genMap = {
 				else { // Class
 //					cout << "is in class " << g.strip().spelling() << endl;
 					if (!settings.headerMode) {
+						cout << "removing " << g.strip().spelling() << endl;
 						return Group(Token::Remove);
 					}
 					showExternTag = false;
@@ -949,8 +984,9 @@ map<Token::Type, mapFunc_t*> genMap = {
 
 
 		{Token::RefTypeStatement, [] (const Group &g) -> Group {
+			auto refType = g.front().type();
+			SettingGuard<Token::Type> guard(settings.refType, refType, Token::ByRef);
 			return generateCpp(g.back());
-#warning "implement byref";
 		}},
 
 
@@ -968,8 +1004,13 @@ map<Token::Type, mapFunc_t*> genMap = {
 				return ret;
 			}
 			else {
-				ret.push_back(Token(" = 0", g.location()));
-				return ret;
+				if (!settings.headerMode && settings.currentScopeType == ScopeType::FunctionArguments) {
+					return ret;
+				}
+				else {
+					ret.push_back(Token(" = 0", g.location()));
+					return ret;
+				}
 			}
 		}},
 
@@ -1044,7 +1085,12 @@ map<Token::Type, mapFunc_t*> genMap = {
 
 		{Token::DefaultAsClause, [] (const Group &g) -> Group {
 			ExpectSize(g, 3);
-			return Group({generateCpp(g.front()), g[1], generateCpp(g.back())}, Token::CDefaultArgument);
+			if (!settings.headerMode && settings.currentScopeType == ScopeType::FunctionArguments) {
+				return generateCpp(g.front());
+			}
+			else {
+				return Group({generateCpp(g.front()), g[1], generateCpp(g.back())}, Token::CDefaultArgument);
+			}
 		}},
 
 
@@ -1085,12 +1131,11 @@ map<Token::Type, mapFunc_t*> genMap = {
 					arguments = ""; // Arguments should not be appended to variables defined as extern
 				}
 				ret.push_back(Token(
-						"VBArray <" + type + "> "
-						+ addMember(name).wordSpelling()
+						"VBArray <" + type + "> ",g.location()));
+				ret.push_back(Token(
+						addMember(name).wordSpelling()
 						+ arguments
 						, g.location()));
-
-
 			}
 			else if (g.back().type() == Token::NewStatement) {
 				auto newTypeName = g.back().back().token.strip();
@@ -1103,12 +1148,20 @@ map<Token::Type, mapFunc_t*> genMap = {
 				}
 
 				ret.push_back(Token("std::shared_ptr<" + addMember(newTypeName).wordSpelling()
-						+ "> " + g.front().token.wordSpelling() +
+						+ "> ", g.location()));
+				ret.push_back(Token(g.front().token.wordSpelling() +
 						arguments
 						, g.location()));
 			}
 			else {
-				ret.push_back(Token(type + " " + addMember(g.front().token.strip()).wordSpelling(), g.location()));
+				ret.push_back(Token(type + " ", g.location()));
+				ret.push_back(Token(addMember(g.front().token.strip()).wordSpelling(), g.location()));
+			}
+
+			if (settings.currentScopeType == ScopeType::FunctionArguments) {
+				if (settings.refType == Token::ByRef) {
+					ret.children.insert(ret.children.end() - 1, Token("&", g.location()));
+				}
 			}
 
 			return ret;
