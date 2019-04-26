@@ -80,6 +80,8 @@ void fastParseFileForDeclarations(string filename) {
 	string prevWord;
 	auto activeUnitName = getCurrentUnitName();
 	auto unitName = getUnitName(filename);
+
+	// Private types and enums is included in header file
 	bool includePrivate = unitName == activeUnitName;
 //	bool includePrivate = true;
 
@@ -131,7 +133,7 @@ void loadTypeInformation(string fileOrRootFolder) {
 		if (!ending.empty() && strippedName.size() > ending.size() + 1) {
 			strippedName = string(strippedName.begin(), strippedName.end() - ending.size() - 1);
 		}
-		vout << "loaded file with ending " << ending << " --> " << getFileName(f) << endl;
+		vout << "checking file with ending " << ending << " --> " << getFileName(f) << endl;
 		if (ending == "cls" || ending == "frm") {
 			vout << "found class file for class " << strippedName << endl;
 			declaredTypes.emplace_back(strippedName, ScopeType::Class, f);

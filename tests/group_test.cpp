@@ -133,6 +133,11 @@ TEST_CASE("do while") {
 	TestFile f("Do While isRunning");
 }
 
+TEST_CASE("draw line statement") {
+	TestFile f("Line (1, 2) - (3, 4)");
+	ASSERT(f.tokens.getByType(Token::LineDrawStatement), "failed to parse line draw statement");
+}
+
 TEST_CASE("for loop") {
 	{
 		TestFile f("for i as single = 0 to 10");
@@ -172,6 +177,9 @@ TEST_CASE("inline if statement not block") {
 	{
 		TestFile f("If Y > 0 Then Total = X + Y Else Total = X - Y");
 	}
+}
+TEST_CASE("inline if statements - member function calls") {
+	TestFile f("If 0 then Me.Show else Me.Show");
 }
 
 TEST_CASE("string concatenation in argument list") {

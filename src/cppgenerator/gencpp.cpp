@@ -211,6 +211,18 @@ void ExpectSize(const Group &g, std::initializer_list<int> sizes) {
 	}
 }
 
+// Some statements does not look like functions whine they are property accessors
+// for example frm->Show this method adds parenthesis to that kind of property accessors
+Group makeRunnable(Group line) {
+	if (line.type() == Token::CPropertyAccessor) {
+		//Trying to call a member variable
+		return Group({line, Token("()", line.location())});
+	}
+	else {
+		return line;
+	}
+}
+
 typedef Group mapFunc_t (const Group &);
 
 map<Token::Type, mapFunc_t*> genMap = {
@@ -479,7 +491,7 @@ map<Token::Type, mapFunc_t*> genMap = {
 		{Token::PropertyAccessor,  [] (const Group &g) -> Group {
 			ExpectSize(g, 2);
 
-			return Group({Token("_with->", g.location()), generateCpp(g.back())});
+			return Group({Token("_with->", g.location()), generateCpp(g.back())}, Token::CPropertyAccessor);
 		}},
 
 
@@ -488,7 +500,7 @@ map<Token::Type, mapFunc_t*> genMap = {
 			if (g.back().type() == Token::PropertyAccessor) {
 				auto &propertyAccessor = g.back();
 				ExpectSize(g, 2);
-				return Group({generateCpp(g.front()), Token("->", g.location()), generateCpp(propertyAccessor.back())});
+				return Group({generateCpp(g.front()), Token("->", g.location()), generateCpp(propertyAccessor.back())}, Token::CPropertyAccessor);
 			}
 			else if (g.back().type() == Token::Parenthesis) {
 				//Function call:
@@ -531,7 +543,7 @@ map<Token::Type, mapFunc_t*> genMap = {
 		{Token::InlineIfStatement,  [] (const Group &g) -> Group {
 			ExpectSize(g, 4);
 
-			return Group({Token("if (", g.location()), generateCpp(g[1]), Token(") ", g.location()), generateCpp(g[3])});
+			return Group({Token("if (", g.location()), makeRunnable(generateCpp(g[1])), Token(") ", g.location()), generateCpp(g[3])});
 		}},
 
 
@@ -542,9 +554,9 @@ map<Token::Type, mapFunc_t*> genMap = {
 				Token("if (", g.location()),
 						generateCpp(g[1]),
 						Token(") ", g.location()),
-						generateCpp(g[3]),
+						makeRunnable(generateCpp(g[3])),
 						Token("; else ", g.location()),
-						generateCpp(g[5]),
+						makeRunnable(generateCpp(g[5])),
 			});
 		}},
 
@@ -614,7 +626,7 @@ map<Token::Type, mapFunc_t*> genMap = {
 						return Group(Token::Remove);
 					}
 					else {
-						return Group({Token(getIndent(), g.location()), line, Token(currentLineEnding + "\n", g.location())});
+						return Group({Token(getIndent(), line.location()), makeRunnable(line), Token(currentLineEnding + "\n", line.location())});
 					}
 				}
 			}
@@ -638,16 +650,16 @@ map<Token::Type, mapFunc_t*> genMap = {
 			}
 
 			bool isPublic = false;
-			if (0) {
+//			if (0) {
 				if (auto specifier = block.getByType(Token::AccessSpecifier)) {
 					if (specifier->front().type() == Token::Public) {
 						isPublic = true;
 					}
 				}
-			}
-			else {
-				isPublic = true; // Todo: Maybe fix this in the future
-			}
+//			}
+//			else {
+//				isPublic = true; // Todo: Maybe fix this in the future
+//			}
 
 			SettingGuard<ScopeType> guard(settings.currentScopeType, settings.currentScopeType);
 			SettingGuard<string> guard2(currentLineEnding);
@@ -1292,6 +1304,30 @@ map<Token::Type, mapFunc_t*> genMap = {
 
 			return ret;
 		}},
+
+
+		{Token::LineDrawStatement, [] (const Group &g) -> Group {
+			ExpectSize(g, 4);
+
+			auto p1 = g.at(1);
+			try {
+				auto &c1 = p1.at(0);
+				auto c2 = g.at(3).at(0);
+				c1.children.insert(c1.end(), Token(", ", g.location(), Token::Comma));
+				c1.children.insert(c1.end(), c2.begin(), c2.end());
+				c1.group(0, 3, false, Token::CommaList);
+				c1.group(0, 3, false, Token::CommaList);
+			}
+			catch (out_of_range &e) {
+				GenerateError(g, "wrong format on 'Line (.., ...) - (.., ...)' statement");
+			}
+
+			return Group({
+				Token("Line ", g.location()),
+				generateCpp(p1)
+			});
+		}},
+
 };
 
 

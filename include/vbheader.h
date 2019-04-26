@@ -132,6 +132,7 @@ enum {
 	vbKeyO,
 	vbKeyZ,
 	vbKeyAdd,
+	vbKeySubtract,
 };
 
 
@@ -164,3 +165,4 @@ VBString InputBox(VBString text, VBString title = {}, VBString defaultValue = {}
 
 void Cls();
 void Print(VBString text);
+void Line(double x1, double y1, double x2, double y2);

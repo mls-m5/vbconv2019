@@ -94,6 +94,7 @@ ts(CloseStatement)
 ts(DoWhileStatement)
 
 ts(MethodCall)
+ts(LineDrawStatement)
 
 tn(As)
 tn(Sub)
@@ -233,6 +234,6 @@ ts(CPublicFunction)
 ts(CPrivateSymbol)
 ts(CSymbolName) //The name of teh active object
 ts(CReference) //Reference to another file
-
+ts(CPropertyAccessor)
 
 

@@ -91,10 +91,6 @@ static TokenPattern negatable = {
 		Token::Numeric
 };
 
-//static TokenPattern beforeNegatable = {{}, {
-//		Token::Word,
-//}};
-
 static vector<Pattern> patternRules = {
 	{{Token::Sub, Token::Word, Token::Parenthesis}, Token::SubStatement},
 	{{Token::Function, Token::Word, Token::Parenthesis, Token::As, Token::Any}, Token::FunctionStatement},
@@ -104,6 +100,11 @@ static vector<Pattern> patternRules = {
 	{{Token::Next, Token::Any}, Token::NextStatement},
 	{{Token::Attribute, Token::Any}, Token::AttributeStatement},
 	{{Token::Enum, Token::Word}, Token::EnumStatement},
+	{{Token::Word, Token::Parenthesis, Token::Minus, Token::Parenthesis}, Token::LineDrawStatement, Pattern::LineRule, Token::Any, Token::None, [] (Pattern &p, int index, Group &g) {
+		// Visual basic had a special statement for drawing lines
+		// Why did they not just have it as a ordinary function?
+		return g[0] == "line";
+	}},
 
 	{{Token::New, Token::Word}, Token::NewStatement},
 	{{Token::Exit, Token::Any}, Token::ExitStatement},
@@ -135,7 +136,7 @@ static vector<Pattern> patternRules = {
 		return true;
 	}}),
 	{{Token::Dot, {Token::Word, Token::Me}}, Token::PropertyAccessor},
-	{{{Token::Word, Token::PropertyAccessor, Token::FunctionCallOrPropertyAccessor, Token::Me}, {Token::Parenthesis, Token::PropertyAccessor}}, Token::FunctionCallOrPropertyAccessor, Pattern::FromLeft, Token::Any, Token::SubStatement},
+	{{{Token::Word, Token::PropertyAccessor, Token::FunctionCallOrPropertyAccessor, Token::Me}, {Token::Parenthesis, Token::PropertyAccessor}}, Token::FunctionCallOrPropertyAccessor, Pattern::FromLeft, Token::Any, {Token::SubStatement, Token::LineDrawStatement}},
 	{{Token::With, {Token::Word, Token::PropertyAccessor, Token::FunctionCallOrPropertyAccessor}}, Token::WithStatement},
 	{{Token::Select, Token::Case, Token::Any}, Token::SelectCaseStatement},
 	{{Token::TypeKeyword, Token::Any}, Token::TypeStatement},
@@ -154,7 +155,6 @@ static vector<Pattern> patternRules = {
 			auto typeBefore = g[index - 1].type();
 			return typeBefore > Token::BinaryOperatorsBegin && typeBefore < Token::BinaryOperatorsEnd;
 //			return beforeNegatable == typeBefore;
-
 		}
 		return true;
 	}}),
@@ -168,7 +168,7 @@ static vector<Pattern> patternRules = {
 	{{Token::Any, TokenPattern({Token::Asterisks, Token::Slash}), Token::Any}, Token::MultiplicationOrDivision, Pattern::FromLeft, Token::Any, Token::DateLiteral},
 	{{Token::Any, TokenPattern({Token::Backslash}), Token::Any}, Token::IntegerDivision},
 	{{Token::Any, Token::Mod, Token::Any}, Token::ModulusOperation},
-	{{Token::Any, TokenPattern({Token::Plus, Token::Minus}), Token::Any}, Token::AdditionOrSubtraction},
+	{{Token::Any, TokenPattern({Token::Plus, Token::Minus}), Token::Any}, Token::AdditionOrSubtraction, Pattern::FromLeft, Token::Any, Token::LineDrawStatement},
 	{{Token::Any, Token::Et, Token::Any}, Token::StringConcatenation},
 	{{Token::Any, TokenPattern({Token::ShiftLeft, Token::ShiftRight}), Token::Any}, Token::ArithmeticBitShift},
 	{{Token::Any, comparisonTokens, Token::Any}, Token::ComparisonOperation, Pattern::FromRight, Token::Any, Token::DefaultAsClause, [] (Pattern &p, int index, Group &g) {
@@ -219,7 +219,7 @@ static vector<Pattern> patternRules = {
 	{{Token::Put, Token::CommaList}, Token::PutStatement},
 	{{Token::Close, Token::FileNumberStatement}, Token::CloseStatement},
 
-	{{{Token::Word, Token::PropertyAccessor, Token::FunctionCallOrPropertyAccessor}, TokenPattern({Token::Any}, {Token::Then})}, Token::MethodCall, Pattern::FromLeft, {Token::Line, Token::Root, Token::InlineIfStatement, Token::InlineIfElseStatement}, {Token::OpenStatement}},
+	{{{Token::Word, Token::PropertyAccessor, Token::FunctionCallOrPropertyAccessor}, TokenPattern({Token::Any}, {Token::Then, Token::Else})}, Token::MethodCall, Pattern::FromLeft, {Token::Line, Token::Root, Token::InlineIfStatement, Token::InlineIfElseStatement}, {Token::OpenStatement}},
 	{{Token::If, Token::Any, Token::Then, Token::Any, Token::Else, Token::Any}, Token::InlineIfElseStatement, Pattern::LineRule, Token::Any, {Token::IfStatement}},
 	{{Token::If, Token::Any, Token::Then, Token::Any}, Token::InlineIfStatement, Pattern::LineRule, Token::Any, {Token::IfStatement, Token::InlineIfElseStatement}},
 	{{Token::If, Token::Any, Token::Then}, Token::IfStatement, Pattern::LineRule, Token::Token::Any, {Token::InlineIfStatement, Token::InlineIfElseStatement}},
