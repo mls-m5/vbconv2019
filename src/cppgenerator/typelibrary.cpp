@@ -213,7 +213,7 @@ Group generateTypeGroup(const Group &vbtype) {
 		return ct("Currency");
 		break;
 	case Token::String:
-		return ct("std::string");
+		return ct("VBString");
 		break;
 
 	default:

@@ -53,7 +53,8 @@ static struct {
 	string unitName;
 	string ending;
 	Token::Type unitType = Token::Class; //Can be Module or Class
-	Token::Type refType = Token::ByRef; // If funciton argumenst is called by reference or by value
+	Token::Type defaultRefType = Token::ByRef;
+	Token::Type refType = Token::ByRef; // If function arguments is called by reference or by value
 
 	Token::Type currentAccessLevel = Token::Private;
 
@@ -156,6 +157,10 @@ void addReferenceToFunction(std::string fname) {
 
 std::vector<Group> &getExtractedSymbols() {
 	return settings.extractedSymbols;
+}
+
+void setDefaultRefType(Token::Type refType) {
+	settings.refType = refType;
 }
 
 
@@ -280,21 +285,19 @@ map<Token::Type, mapFunc_t*> genMap = {
 			}
 
 
-//			for (auto &c: settings.classReferences) {
-//				headerString += "class " + c + ";\n";
-//			}
 			headerString += "\n";
 
-			if (settings.ending == "cls") {
+
+			if (settings.unitType == Token::Module) {
+//				unitName = string(unitName.begin(), unitName.end() - 4);
+				ret.children.insert(ret.begin(), Token("namespace " + settings.unitName + " {\n", ret.location()));
+				ret.push_back(Token("} // namespace \nusing namespace " + settings.unitName + ";\n", ret.location()));
+			}
+			else {
 				if (settings.headerMode) {
 					ret.children.insert(ret.begin(), Group({Token("class " + settings.unitName + ": public std::enable_shared_from_this<" + settings.unitName + "> {\npublic:\n", ret.location())}));
 					ret.push_back(Token("};\n", ret.location()));
 				}
-			}
-			else if (settings.unitType == Token::Module) {
-//				unitName = string(unitName.begin(), unitName.end() - 4);
-				ret.children.insert(ret.begin(), Token("namespace " + settings.unitName + " {\n", ret.location()));
-				ret.push_back(Token("} // namespace \nusing namespace " + settings.unitName + ";\n", ret.location()));
 			}
 
 			if (settings.headerMode) {
@@ -441,7 +444,7 @@ map<Token::Type, mapFunc_t*> genMap = {
 
 		{Token::LogicalNegation,  [] (const Group &g) -> Group {
 			ExpectSize(g, 2);
-			return Group ({Token("!", g.location()), generateCpp(g.back())});
+			return Group ({Token("!(", g.location()), generateCpp(g.back()), Token(")", g.location())});
 		}},
 
 
@@ -1104,7 +1107,7 @@ map<Token::Type, mapFunc_t*> genMap = {
 
 		{Token::RefTypeStatement, [] (const Group &g) -> Group {
 			auto refType = g.front().type();
-			SettingGuard<Token::Type> guard(settings.refType, refType, Token::ByRef);
+			SettingGuard<Token::Type> guard(settings.refType, refType, settings.defaultRefType);
 			return generateCpp(g.back());
 		}},
 
@@ -1165,7 +1168,7 @@ map<Token::Type, mapFunc_t*> genMap = {
 				type = "double";
 				break;
 			case Token::Dollar:
-				type = "std::string";
+				type = "VBString";
 				break;
 			default:
 				break;
@@ -1310,8 +1313,12 @@ public:
 	}
 } initClass;
 
-Group generateCpp(string filename, bool header) {
+Group generateCpp(string filename, bool header, bool byvalRef) {
 	settings.clear();
+	if (byvalRef) {
+		settings.defaultRefType = Token::ByVal;
+		settings.refType = settings.defaultRefType;
+	}
 
 	setFilename(filename);
 	setHeaderMode(header);

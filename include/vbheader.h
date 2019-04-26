@@ -15,6 +15,7 @@
 #include <fstream>
 #include <iostream>
 #include <chrono>
+#include <sstream>
 
 typedef double Currency;
 
@@ -43,6 +44,49 @@ namespace std {
 	}
 }
 
+class VBString: public std::string {
+public:
+	VBString() = default;
+	VBString(const VBString&) = default;
+	VBString(VBString&&) = default;
+	VBString(const std::string &s): std::string(s) {}
+	VBString(const char *s): std::string(s) {}
+	VBString& operator=(const VBString&) = default;
+	template <typename T>
+	VBString(const T value) {
+		std::stringstream ss;
+		ss << value;
+		*this = ss.str();
+	}
+
+	template <typename T>
+	operator T () {
+		T ret;
+		std::stringstream ss(*this);
+		ss >> ret;
+		return ret;
+	}
+
+	template <typename T>
+	T operator -(const T& value) {
+		return (T)(*this) - value;
+	}
+
+	template <typename T>
+	VBString &operator =(const T& value) {
+		std::stringstream ss;
+		ss << value;
+		*this = ss.str();
+
+		return *this;
+	}
+
+	template <typename T>
+	VBString operator==(const T &value) {
+		return (VBString)value == *this;
+	}
+};
+
 double Rnd() {
 	return (double) rand() / RAND_MAX;
 }
@@ -66,17 +110,28 @@ void Randomize(int number = 0) {
 #define Sqr sqrt
 typedef long Date;
 
+template <typename T>
+long Int(T i) {
+	return (long) i;
+}
+
 std::string Chr(char c) {
 	return std::string(1, c);
 }
 
-void DoEvents() {}; //Todo: Implement
 
 enum {
 	vbBlue,
 	vbWhite,
 	vbRed,
 	vbYellow,
+
+	vbKeyA,
+	vbKeyW,
+	vbKeyN,
+	vbKeyO,
+	vbKeyZ,
+	vbKeyAdd,
 };
 
 
@@ -101,3 +156,11 @@ static void _load(std::istream &stream, Currency &value) {
 	value = (double)in / 1000.;
 }
 
+// Functions not implemented yet
+
+void DoEvents() {}; //Todo: Implement
+
+VBString InputBox(VBString text, VBString title = {}, VBString defaultValue = {});
+
+void Cls();
+void Print(VBString text);

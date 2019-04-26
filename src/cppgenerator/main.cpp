@@ -34,18 +34,14 @@ string createDependencyString(string base, vector<string> dependencies) {
 	return ret;
 }
 
+
 int main(int argc, char **argv) {
 	string filename;
 	string outputFile = "out.cpp";
 	bool outputHeader = false;
 	bool outputSource = false;
-//	string filename = "originals/SD/Ship.cls";
-//	string filename = "originals/SD/MainMod.bas";
-//	string filename = "originals/SD/MapMod.bas";
-//	string filename = "originals/SD/MarketMod.bas";
-//	string filename = "originals/SD/Shot.cls";
-
 	bool isReferencesSpecified = false;
+	bool byvalRefType = false;
 
 	if (argc > 1) {
 		filename = argv[1];
@@ -68,6 +64,9 @@ int main(int argc, char **argv) {
 			else if (arg == "-v") {
 				setVerboseOutput(true);
 			}
+			else if (arg == "--byval") {
+				byvalRefType = true;
+			}
 			else if (i + 1 < argc) {
 				if (arg == "-o") {
 					outputFile = argv[++i];
@@ -82,6 +81,7 @@ int main(int argc, char **argv) {
 		}
 		if (!outputHeader && !outputSource) {
 			outputHeader = true;
+			outputSource = true;
 		}
 	}
 	else {
@@ -94,6 +94,7 @@ int main(int argc, char **argv) {
 		cout << "-o -                output to std out" << endl;
 		cout << "-v                  show extra text output " << endl;
 		cout << "--references [...]  specify which objects to link together (standard is all files in folder)" << endl;
+		cout << "--byval             switch to byval as standard instead of byref" << endl;
 		return 0;
 	}
 
@@ -109,24 +110,7 @@ int main(int argc, char **argv) {
 	vector <Group *> referencedFunctions;
 
 	if (outputHeader) {
-		auto output = generateCpp(filename, true);
-
-		auto f1 = output.getByType(Token::CVoidFunction);
-		referencedFunctions.insert(referencedFunctions.end(), f1);
-		auto f2 = output.getByType(Token::CFunctionWithType);
-		referencedFunctions.insert(referencedFunctions.end(), f2);
-
-		if (outputFile == "-" || (outputHeader && outputSource)) {
-			cout << output.spelling() << endl;
-		}
-		else {
-			ofstream file(outputFile);
-			file << output.spelling() << endl;
-		}
-	}
-
-	if (outputSource) {
-		auto output = generateCpp(filename, false);
+		auto output = generateCpp(filename, true, byvalRefType);
 
 		auto f1 = output.getByType(Token::CVoidFunction);
 		referencedFunctions.insert(referencedFunctions.end(), f1);
@@ -137,7 +121,24 @@ int main(int argc, char **argv) {
 			cout << output.spelling() << endl;
 		}
 		else {
-			ofstream file(outputFile);
+			ofstream file(stripEnding(outputFile) + ".h");
+			file << output.spelling() << endl;
+		}
+	}
+
+	if (outputSource) {
+		auto output = generateCpp(filename, false, byvalRefType);
+
+		auto f1 = output.getByType(Token::CVoidFunction);
+		referencedFunctions.insert(referencedFunctions.end(), f1);
+		auto f2 = output.getByType(Token::CFunctionWithType);
+		referencedFunctions.insert(referencedFunctions.end(), f2);
+
+		if (outputFile == "-") {
+			cout << output.spelling() << endl;
+		}
+		else {
+			ofstream file(stripEnding(outputFile) + ".cpp");
 			file << output.spelling() << endl;
 		}
 	}

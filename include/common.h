@@ -32,6 +32,16 @@ inline std::string getEnding(const std::string &filename) {
 	return "";
 }
 
+inline std::string stripEnding(const std::string &filename) {
+	auto ending = getEnding(filename);
+	if (ending.empty()) {
+		return filename;
+	}
+	else {
+		return std::string(filename.begin(), filename.end() - ending.size() - 1);
+	}
+}
+
 inline std::string getFileName(const std::string &path) {
 	for (int i = path.size() - 1; i >= 0; --i) {
 		if (path[i] == '/' || path [i] == '\\') {
