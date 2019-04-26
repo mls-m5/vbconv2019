@@ -529,7 +529,7 @@ map<Token::Type, mapFunc_t*> genMap = {
 			else {
 				methodName = generateCpp(methodName);
 			}
-			vout << "Mothod call: " <<  methodName.strip().spelling() << endl;
+			vout << "Method call: " <<  methodName.strip().spelling() << endl;
 			return Group({methodName.strip(), Token("(", g.location()), generateCpp(g.back()), Token(")", g.location())});
 		}},
 
@@ -1055,7 +1055,14 @@ map<Token::Type, mapFunc_t*> genMap = {
 
 
 		{Token::DoubleComma, [] (const Group &g) -> Group {
-			return Token(",0 , ", g.location());
+			// Expand commas
+			auto ret = Token(", 0, ", g.location());
+			auto *nextComa = &g;
+			while (nextComa->front() == Token::DoubleComma) {
+				ret += "0, ";
+				nextComa = &nextComa->front();
+			}
+			return ret;
 		}},
 
 
