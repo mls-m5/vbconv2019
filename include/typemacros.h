@@ -54,6 +54,7 @@ ts(CommaList)
 
 ts(AsClause)
 ts(DefaultAsClause)
+ts(DefaultTypeCharacterClause)
 ts(TypeCharacterClause)
 ts(DoubleComma)
 ts(SubStatement)
@@ -235,5 +236,6 @@ ts(CPrivateSymbol)
 ts(CSymbolName) //The name of teh active object
 ts(CReference) //Reference to another file
 ts(CPropertyAccessor)
+ts(CPointerType)
 
 

@@ -1113,6 +1113,12 @@ map<Token::Type, mapFunc_t*> genMap = {
 					Token("static const ", g.location()),
 							generateCpp(*defaultAsClause)});
 			}
+			else if (auto defaultAsClause = g.getByType(Token::DefaultTypeCharacterClause)) {
+				ExpectSize(g, 2);
+				return Group({
+					Token("static const ", g.location()),
+							generateCpp(*defaultAsClause)});
+			}
 			throw GenerateError(g, "const expression do not contain assignment");
 		}},
 
@@ -1142,7 +1148,7 @@ map<Token::Type, mapFunc_t*> genMap = {
 					return ret;
 				}
 				else {
-					ret.push_back(Token(" = 0", g.location()));
+					ret.push_back(Token(" = {}", g.location()));
 					return ret;
 				}
 			}
@@ -1227,7 +1233,6 @@ map<Token::Type, mapFunc_t*> genMap = {
 			}
 		}},
 
-
 		{Token::AsClause, [] (const Group &g) -> Group {
 			ExpectSize(g, 3);
 
@@ -1254,8 +1259,6 @@ map<Token::Type, mapFunc_t*> genMap = {
 			};
 
 			if (g.front().type() == Token::FunctionCallOrPropertyAccessor) {
-
-
 				vout << "variable " << g.front().front().token.wordSpelling() << " is array of type " << type.spelling() << endl;;
 				auto name = g.front().front().token.strip();
 				auto arguments = generateCpp(g.front().back()).spelling();
@@ -1269,9 +1272,9 @@ map<Token::Type, mapFunc_t*> genMap = {
 				ret.push_back(Token("VBArray <", g.location()));
 				ret.push_back(type);
 				ret.push_back(Token("> ",g.location()));
+				ret.push_back(prepareMember(name));
 				ret.push_back(Token(
-						prepareMember(name).wordSpelling()
-						+ arguments
+						arguments
 						, g.location()));
 			}
 			else if (g.back().type() == Token::NewStatement) {
@@ -1289,6 +1292,7 @@ map<Token::Type, mapFunc_t*> genMap = {
 				ret.push_back(Token(g.front().token.wordSpelling() +
 						arguments
 						, g.location()));
+				ret.type(Token::CPointerType);
 			}
 			else {
 				ret.push_back(type);
@@ -1298,7 +1302,13 @@ map<Token::Type, mapFunc_t*> genMap = {
 
 			if (settings.currentScopeType == ScopeType::FunctionArguments) {
 				if (settings.refType == Token::ByRef) {
-					ret.children.insert(ret.children.end() - 1, Token("&", g.location()));
+					if (type.type() != Token::CPointerType) {
+						// Byref does not work properly for pointers, we can as well send the pointer
+						ret.children.insert(ret.children.end() - 1, Token("&", g.location()));
+					}
+					else {
+						vout << "removing byref for pointer " << ret.spelling() << endl;
+					}
 				}
 			}
 
@@ -1346,6 +1356,7 @@ public:
 		genMap[Token::PutStatement] = genMap.at(Token::GetStatement);
 		genMap[Token::Timer] = genMap.at(Token::Rnd);
 		genMap[Token::Randomize] = genMap.at(Token::Rnd);
+		genMap[Token::DefaultTypeCharacterClause] = genMap.at(Token::DefaultAsClause);
 	}
 } initClass;
 

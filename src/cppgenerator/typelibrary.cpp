@@ -228,7 +228,7 @@ Group generateTypeGroup(const Group &vbtype) {
 			vout << "found class " << typeToken.wordSpelling() << " creating shared_ptr" << endl;
 
 			addReferenceToClass(typeDecl->casedName);
-			return Group({ct("std::shared_ptr<"), ct(typeDecl->casedName, Token::CReference), ct(">")});
+			return Group({ct("std::shared_ptr<"), ct(typeDecl->casedName, Token::CReference), ct(">")}, Token::CPointerType);
 		}
 		else {
 			addReferenceToType(typeDecl->casedName);

@@ -88,7 +88,10 @@ static TokenPattern negatable = {
 		Token::Word,
 		Token::Parenthesis,
 		Token::UnaryIdentityOrNegation,
-		Token::Numeric
+		Token::Numeric,
+		Token::FunctionCallOrPropertyAccessor,
+		Token::PropertyAccessor,
+		Token::Literal,
 };
 
 static vector<Pattern> patternRules = {
@@ -129,7 +132,7 @@ static vector<Pattern> patternRules = {
 			//This prevents this rule to match if it actually is a stringconcatenation in a comma list
 			// eg DrawText 20, 10, Message & Message2
 			auto typeAfter = g[index + 2].type();
-			if (typeAfter != Token::Comma) {
+			if ((typeAfter != Token::Comma) && (typeAfter != Token::Equal)) {
 				return false;
 			}
 		}
@@ -161,6 +164,7 @@ static vector<Pattern> patternRules = {
 
 	{{Token::Any, Token::As, TokenPattern({Token::Any}, {Token::FileNumberStatement})}, Token::AsClause},
 	{{Token::AsClause, Token::Equal, Token::Any}, Token::DefaultAsClause},
+	{{Token::TypeCharacterClause, Token::Equal, Token::Any}, Token::DefaultTypeCharacterClause},
 	{{{Token::ByRef, Token::ByVal}, Token::Any}, Token::RefTypeStatement},
 	{{Token::Optional, Token::Any}, Token::OptionalStatement},
 
@@ -171,7 +175,7 @@ static vector<Pattern> patternRules = {
 	{{Token::Any, TokenPattern({Token::Plus, Token::Minus}), Token::Any}, Token::AdditionOrSubtraction, Pattern::FromLeft, Token::Any, Token::LineDrawStatement},
 	{{Token::Any, Token::Et, Token::Any}, Token::StringConcatenation},
 	{{Token::Any, TokenPattern({Token::ShiftLeft, Token::ShiftRight}), Token::Any}, Token::ArithmeticBitShift},
-	{{Token::Any, comparisonTokens, Token::Any}, Token::ComparisonOperation, Pattern::FromRight, Token::Any, Token::DefaultAsClause, [] (Pattern &p, int index, Group &g) {
+	{{Token::Any, comparisonTokens, Token::Any}, Token::ComparisonOperation, Pattern::FromRight, Token::Any, {Token::DefaultAsClause, Token::DefaultTypeCharacterClause}, [] (Pattern &p, int index, Group &g) {
 		if (g[index + 1].type() == Token::Equal) {
 			if (index == 0 && (g == Token::Root || g == Token::Line || g == Token::Assignment)) {
 				return false; //This is a assignment
@@ -207,7 +211,7 @@ static vector<Pattern> patternRules = {
 	{{Token::Any, {Token::Or, Token::OrElse}, Token::Any}, Token::InclusiveDisjunction},
 	{{Token::Any, {Token::Xor}, Token::Any}, Token::ExclusiveDisjunction},
 	{{Token::Set, Token::Any, Token::Equal, Token::Any}, Token::SetStatement, Pattern::FromLeft, Token::Any, Token::ComparisonOperation},
-	{{Token::Any, Token::Equal, Token::Any}, Token::Assignment, Pattern::FromLeft, Token::Any, {Token::ComparisonOperation, Token::SetStatement, Token::DefaultAsClause}},
+	{{Token::Any, Token::Equal, Token::Any}, Token::Assignment, Pattern::FromLeft, Token::Any, {Token::ComparisonOperation, Token::SetStatement, Token::DefaultAsClause, Token::DefaultTypeCharacterClause}},
 
 
 	{{{Token::Comma, Token::DoubleComma}, {Token::Comma}}, Token::DoubleComma, Pattern::FromLeft, Token::Any, Token::DoubleComma},

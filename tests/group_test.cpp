@@ -180,7 +180,7 @@ TEST_CASE("inline if statement not block") {
 }
 
 TEST_CASE("advanced function definition") {
-	TestFile f("Public Sub Init(ByVal Angle2!, ByVal Length2 As Single, ByVal Damage2 As Long, Optional ByVal Frict! = 1, Optional ByVal Rotation!, Optional ByVal LineLength2 As Long, Optional MatchObject As Ship)");
+	TestFile f("Optional ByVal Frict! = 1, Optional ByVal Rotation!");
 }
 
 TEST_CASE("inline if statements - member function calls") {
@@ -222,6 +222,10 @@ TEST_CASE("negation") {
 		ASSERT_EQ(f.tokens.size(), 1);
 		ASSERT_EQ(f.tokens.front().front().type(), Token::MethodCall);
 		ASSERT_EQ(f.tokens.front().front()[1].type(), Token::UnaryIdentityOrNegation);
+	}
+
+	{
+		TestFile f("YSpeed = -Cos(Angle2) * Speed");
 	}
 }
 
