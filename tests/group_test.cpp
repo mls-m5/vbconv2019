@@ -178,6 +178,11 @@ TEST_CASE("inline if statement not block") {
 		TestFile f("If Y > 0 Then Total = X + Y Else Total = X - Y");
 	}
 }
+
+TEST_CASE("advanced function definition") {
+	TestFile f("Public Sub Init(ByVal Angle2!, ByVal Length2 As Single, ByVal Damage2 As Long, Optional ByVal Frict! = 1, Optional ByVal Rotation!, Optional ByVal LineLength2 As Long, Optional MatchObject As Ship)");
+}
+
 TEST_CASE("inline if statements - member function calls") {
 	TestFile f("If 0 then Me.Show else Me.Show");
 }

@@ -109,44 +109,31 @@ int main(int argc, char **argv) {
 
 	vector <Group *> referencedFunctions;
 
+	auto outputSourceFunction = [&] (bool headerMode) {
+			auto output = generateCpp(filename, headerMode, byvalRefType);
+
+			auto f1 = output.getByType(Token::CVoidFunction);
+			referencedFunctions.insert(referencedFunctions.end(), f1);
+			auto f2 = output.getByType(Token::CFunctionWithType);
+			referencedFunctions.insert(referencedFunctions.end(), f2);
+
+			if (outputFile == "-") {
+				cout << output.spelling() << endl;
+			}
+			else {
+				string outputFileEnding = headerMode? ".h": ".cpp";
+				ofstream file(stripEnding(outputFile) + outputFileEnding);
+				file << output.spelling() << endl;
+			}
+	};
+
 	if (outputHeader) {
-		auto output = generateCpp(filename, true, byvalRefType);
-
-		auto f1 = output.getByType(Token::CVoidFunction);
-		referencedFunctions.insert(referencedFunctions.end(), f1);
-		auto f2 = output.getByType(Token::CFunctionWithType);
-		referencedFunctions.insert(referencedFunctions.end(), f2);
-
-		if (outputFile == "-") {
-			cout << output.spelling() << endl;
-		}
-		else {
-			ofstream file(stripEnding(outputFile) + ".h");
-			file << output.spelling() << endl;
-		}
+		outputSourceFunction(true);
 	}
 
-	if (outputSource) {
-		auto output = generateCpp(filename, false, byvalRefType);
-
-		auto f1 = output.getByType(Token::CVoidFunction);
-		referencedFunctions.insert(referencedFunctions.end(), f1);
-		auto f2 = output.getByType(Token::CFunctionWithType);
-		referencedFunctions.insert(referencedFunctions.end(), f2);
-
-		if (outputFile == "-") {
-			cout << output.spelling() << endl;
-		}
-		else {
-			ofstream file(stripEnding(outputFile) + ".cpp");
-			file << output.spelling() << endl;
-		}
-	}
 
 
 	vector<Group> &extractedSymbols = getExtractedSymbols();
-
-
 
 	ofstream dependencyFile;
 
@@ -190,7 +177,7 @@ int main(int argc, char **argv) {
 		for (auto &symbol: extractedSymbols) {
 			auto symbolNameGroup = symbol.getByType(Token::CSymbolName);
 			auto symbolOutputFile = getDirectory(outputFile) + unitName + "-" +  toLower(symbolNameGroup->spelling()) + ".h";
-			vout << "outputting to file " << symbolOutputFile << endl;
+			vout << "-- outputting to file --> " << symbolOutputFile << endl;
 			ofstream file(symbolOutputFile);
 			if (!file.is_open()) {
 				cerr << "could not open file " << symbolOutputFile << endl;
@@ -204,4 +191,21 @@ int main(int argc, char **argv) {
 		dependencyFile << createDependencyString(outputFile, symbolStrings) << endl;
 	}
 
+	if (outputSource) {
+		outputSourceFunction(false);
+//		auto output = generateCpp(filename, false, byvalRefType);
+//
+//		auto f1 = output.getByType(Token::CVoidFunction);
+//		referencedFunctions.insert(referencedFunctions.end(), f1);
+//		auto f2 = output.getByType(Token::CFunctionWithType);
+//		referencedFunctions.insert(referencedFunctions.end(), f2);
+//
+//		if (outputFile == "-") {
+//			cout << output.spelling() << endl;
+//		}
+//		else {
+//			ofstream file(stripEnding(outputFile) + ".cpp");
+//			file << output.spelling() << endl;
+//		}
+	}
 }

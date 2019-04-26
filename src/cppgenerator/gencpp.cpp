@@ -70,14 +70,6 @@ static struct {
 	std::vector<string > unitReferences;
 
 	void clear() {
-//		classReferences.clear();
-//		currentAccessLevel = Token::Private;
-//		ending.clear();
-//		unitName.clear();
-//		filename.clear();
-//		currentScopeType = ScopeType::None;
-//		refType = Token::ByRef;
-
 		typedef remove_reference<decltype(*this)>::type thisType;
 
 		*this = thisType();
@@ -281,7 +273,11 @@ map<Token::Type, mapFunc_t*> genMap = {
 			}
 
 			for (auto &ref: settings.functionReferences) {
-				addRef(ref);
+				auto unit = getUnitForSymbol(ref);
+				if (unit.empty()) {
+					continue;
+				}
+				unitReferences.insert(unit); //This references the unit directly, not a special header
 			}
 
 			unitReferences.erase("");
@@ -291,7 +287,7 @@ map<Token::Type, mapFunc_t*> genMap = {
 			for (auto u: unitReferences) {
 				auto headerName = toLower(u) + ".h";
 				headerString += "#include \"" + headerName + "\"\n";
-				vout << u << endl;
+				vout << "\t" << u << endl;
 
 				settings.unitReferences.push_back(headerName);
 			}
@@ -525,11 +521,15 @@ map<Token::Type, mapFunc_t*> genMap = {
 				throw GenerateError(g, "wrong size in method call");
 			}
 			auto methodName = g.front();
-			if (methodName.type() == Token::Word && methodName.token.wordSpelling() != currentFunction.name) {
+			if (methodName.type() == Token::Word && methodName.token.wordSpelling() == currentFunction.name) {
 				// This will prevent the functions name to be replaced with _ret in recursion
+				vout << "processing method name because current function name = " << currentFunction.name << endl;
+				vout << "leaving method name without processing" << endl;
+			}
+			else {
 				methodName = generateCpp(methodName);
 			}
-//			cout << methodName.strip().spelling() << endl;
+			vout << "Mothod call: " <<  methodName.strip().spelling() << endl;
 			return Group({methodName.strip(), Token("(", g.location()), generateCpp(g.back()), Token(")", g.location())});
 		}},
 
@@ -1375,7 +1375,7 @@ Group generateCpp(const Group &g) {
 		return f(g);
 	}
 	catch (out_of_range &e) {
-		vout << "could not find expression for " << g.location() << g.typeString() << endl;
+		cerr << "could not find expression for " << g.location() << g.typeString() << endl;
 		return Group();
 	}
 	catch (runtime_error &e) {
