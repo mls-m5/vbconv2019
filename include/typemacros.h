@@ -175,6 +175,7 @@ tn(Option)
 tn(Of)
 tn(Me)
 tn(Exit)
+tn(Nothing)
 
 tl(TypeKeyword, "Type") // "Type" collides with Token::Type
 tl(Percentage, "%")

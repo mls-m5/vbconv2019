@@ -206,7 +206,10 @@ void ExpectSize(const Group &g, std::initializer_list<int> sizes) {
 // Some statements does not look like functions whine they are property accessors
 // for example frm->Show this method adds parenthesis to that kind of property accessors
 Group makeRunnable(Group line) {
-	if (line.type() == Token::CPropertyAccessor) {
+	if (settings.currentScopeType == ScopeType::Enum) {
+		return line;
+	}
+	if (line.type() == Token::CPropertyAccessor || line.type() == Token::Word) {
 		//Trying to call a member variable
 		return Group({line, Token("()", line.location())});
 	}
@@ -529,6 +532,11 @@ map<Token::Type, mapFunc_t*> genMap = {
 			else {
 				methodName = generateCpp(methodName);
 			}
+
+			if (methodName.type() == Token::Word) {
+				addReferenceToFunction(methodName.strip().spelling());
+				vout << "Adding reference to method " << methodName.strip().spelling() << endl;
+			}
 			vout << "Method call: " <<  methodName.strip().spelling() << endl;
 			return Group({methodName.strip(), Token("(", g.location()), generateCpp(g.back()), Token(")", g.location())});
 		}},
@@ -543,7 +551,7 @@ map<Token::Type, mapFunc_t*> genMap = {
 		{Token::InlineIfStatement,  [] (const Group &g) -> Group {
 			ExpectSize(g, 4);
 
-			return Group({Token("if (", g.location()), makeRunnable(generateCpp(g[1])), Token(") ", g.location()), generateCpp(g[3])});
+			return Group({Token("if (", g.location()), makeRunnable(generateCpp(g[1])), Token(") ", g.location()), makeRunnable(generateCpp(g[3]))});
 		}},
 
 
@@ -552,7 +560,7 @@ map<Token::Type, mapFunc_t*> genMap = {
 
 			return Group({
 				Token("if (", g.location()),
-						generateCpp(g[1]),
+						makeRunnable(generateCpp(g[1])),
 						Token(") ", g.location()),
 						makeRunnable(generateCpp(g[3])),
 						Token("; else ", g.location()),
@@ -569,10 +577,13 @@ map<Token::Type, mapFunc_t*> genMap = {
 				return Token("_ret", g.location());
 			}
 			else {
-				return Token(g.token.wordSpelling(), g.location());
+				return Token(g.token.wordSpelling(), g.location(), Token::Word);
 			}
 		}},
 
+		{Token::Nothing,  [] (const Group &g) -> Group {
+			return Token("nullptr", g.location());
+		}},
 
 		{Token::ExitStatement,  [] (const Group &g) -> Group {
 			ExpectSize(g, 2);

@@ -41,7 +41,8 @@ int main(int argc, char **argv) {
 	bool outputHeader = false;
 	bool outputSource = false;
 	bool isReferencesSpecified = false;
-	bool byvalRefType = false;
+	bool byvalRefType = true;
+//	bool byvalRefType = false;
 
 	if (argc > 1) {
 		filename = argv[1];
@@ -67,6 +68,9 @@ int main(int argc, char **argv) {
 			else if (arg == "--byval") {
 				byvalRefType = true;
 			}
+			else if (arg == "--byref") {
+				byvalRefType = false;
+			}
 			else if (i + 1 < argc) {
 				if (arg == "-o") {
 					outputFile = argv[++i];
@@ -91,10 +95,12 @@ int main(int argc, char **argv) {
 		cout << "--source            output c++ source (.cpp)" << endl;
 		cout << "--all               output .h and .cpp files" << endl;
 		cout << "-o                  set location of output file" << endl;
+		cout << "-o ./               set location of output file" << endl;
 		cout << "-o -                output to std out" << endl;
 		cout << "-v                  show extra text output " << endl;
 		cout << "--references [...]  specify which objects to link together (standard is all files in folder)" << endl;
 		cout << "--byval             switch to byval as standard instead of byref" << endl;
+		cout << "--byref             switch to byval as standard" << endl;
 		return 0;
 	}
 
@@ -123,6 +129,10 @@ int main(int argc, char **argv) {
 			else {
 				string outputFileEnding = headerMode? ".h": ".cpp";
 				ofstream file(stripEnding(outputFile) + outputFileEnding);
+				if (!file.is_open()) {
+					cerr << "could not open file " << outputFile + outputFileEnding << endl;
+					throw "error";
+				}
 				file << output.spelling() << endl;
 			}
 	};
@@ -154,6 +164,9 @@ int main(int argc, char **argv) {
 				auto unitName = typeDeclaration->sourceUnit;
 				vout << r->spelling() << " in " << unitName << endl;
 				auto dependencyName = toLower(unitName + "-" + r->spelling()) + ".h";
+				if (typeDeclaration->type == ScopeType::Class) {
+					dependencyName = toLower(unitName) + ".h";
+				}
 				stream << "#include \"" + dependencyName + "\"\n" << endl;
 				dependencies.push_back(dependencyName);
 			}

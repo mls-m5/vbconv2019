@@ -1,6 +1,6 @@
 
 flags += -I../include -I../src/ -ggdb -D_GLIBCXX_DEBUG -O0
-src = ../src/token.cpp ../src/file.cpp
+src = ../src/token.cpp ../src/file.cpp ../src/patternrules.cpp
 dir = bin/bin/
 
 group_test.exe = %

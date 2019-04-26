@@ -127,12 +127,15 @@ enum {
 	vbYellow,
 
 	vbKeyA,
+	vbKeyD,
 	vbKeyW,
 	vbKeyN,
 	vbKeyO,
 	vbKeyZ,
 	vbKeyAdd,
 	vbKeySubtract,
+
+	vbKeyControl,
 };
 
 
