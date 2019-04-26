@@ -126,16 +126,24 @@ enum {
 	vbRed,
 	vbYellow,
 
+	vbKeyRight,
+	vbKeyLeft,
+	vbKeyUp,
+	vbKeyDown,
+
 	vbKeyA,
 	vbKeyD,
 	vbKeyW,
 	vbKeyN,
 	vbKeyO,
+	vbKeyS,
 	vbKeyZ,
 	vbKeyAdd,
 	vbKeySubtract,
 
 	vbKeyControl,
+	vbKeySpace,
+	vbKeyShift,
 };
 
 
@@ -159,6 +167,31 @@ static void _load(std::istream &stream, Currency &value) {
 	stream.read((char *)&in, sizeof(in));
 	value = (double)in / 1000.;
 }
+
+
+// These functions is to make the with statement work with both
+// Shared pointers and values returned from functions
+
+// This will match shared pointers
+template <typename T>
+T *_with_fixer(std::shared_ptr<T> i) {
+    return i.get();
+}
+
+// This will match actual values
+template <typename T>
+T *_with_fixer(T &i) {
+    return &i;
+}
+
+// This will match for example return values from functions
+template <typename T>
+const T* _with_fixer(const T&i) {
+    return &i;
+}
+
+
+
 
 // Functions not implemented yet
 

@@ -57,6 +57,7 @@ static struct {
 	Token::Type refType = Token::ByRef; // If function arguments is called by reference or by value
 
 	Token::Type currentAccessLevel = Token::Private;
+	bool isExtern = false;
 
 	bool extractTypesAndEnums = true;
 	std::vector<Group> extractedSymbols;
@@ -653,7 +654,6 @@ map<Token::Type, mapFunc_t*> genMap = {
 			auto endBlockString = "}\n"s;
 			currentLineEnding = ";";
 
-			ret.push_back(Token(getIndent(), g.location()));
 
 			auto functionStatement = g.front().getByType(Token::SubStatement);
 			if (!functionStatement) {
@@ -661,19 +661,17 @@ map<Token::Type, mapFunc_t*> genMap = {
 			}
 
 			bool isPublic = false;
-//			if (0) {
-				if (auto specifier = block.getByType(Token::AccessSpecifier)) {
-					if (specifier->front().type() == Token::Public) {
-						isPublic = true;
-					}
+			if (auto specifier = block.getByType(Token::AccessSpecifier)) {
+				if (specifier->front().type() == Token::Public) {
+					isPublic = true;
 				}
-//			}
-//			else {
-//				isPublic = true; // Todo: Maybe fix this in the future
-//			}
+			}
 
 			SettingGuard<ScopeType> guard(settings.currentScopeType, settings.currentScopeType);
 			SettingGuard<string> guard2(currentLineEnding);
+
+			ret.push_back(Token(getIndent(), g.location()));
+
 
 			if (functionStatement) {
 				auto f = generateCpp(*functionStatement);
@@ -727,10 +725,12 @@ map<Token::Type, mapFunc_t*> genMap = {
 				auto with = g.front().front();
 
 				ExpectSize(with, 2);
+
+
 				ret.children.push_back(Group({
-					Token("{\n" + getIndent(depth + 1) + "auto &_with = ",
+					Token("{\n" + getIndent(depth + 1) + "auto _with = _with_fixer(",
 							with.location()),
-									generateCpp(with.back()), Token(";", g.location())}));
+									generateCpp(with.back()), Token(");", g.location())}));
 
 				ret.push_back(Token("\n", g.location()));
 			}
@@ -966,14 +966,14 @@ map<Token::Type, mapFunc_t*> genMap = {
 				throw GenerateError(g, "Not wrong amount of groups in statement");
 			}
 
-			bool showExternTag = false;
-
 			settings.currentAccessLevel = g.front().type();
 			if (settings.currentAccessLevel == Token::Dim) {
 				settings.currentAccessLevel = Token::Private;
 			}
 
 			auto type = g[1].type();
+
+			SettingGuard <bool>externGuard(settings.isExtern);
 
 //			cout << "accessspecifier set " << g.strip().spelling() << endl;
 
@@ -982,7 +982,7 @@ map<Token::Type, mapFunc_t*> genMap = {
 			if (settings.currentScopeType == ScopeType::None) {
 				if (settings.unitType == Token::Module) {
 //					cout << "is in module " << g.strip().spelling() << endl;
-					showExternTag = settings.headerMode;
+					settings.isExtern = settings.headerMode;
 				}
 				else { // Class
 //					cout << "is in class " << g.strip().spelling() << endl;
@@ -990,7 +990,7 @@ map<Token::Type, mapFunc_t*> genMap = {
 //						cout << "removing " << g.strip().spelling() << endl;
 						return Group(Token::Remove);
 					}
-					showExternTag = false;
+					settings.isExtern = false;
 				}
 			}
 
@@ -1012,7 +1012,10 @@ map<Token::Type, mapFunc_t*> genMap = {
 					ret.push_back(generateCpp(d));
 				}
 
-				if (showExternTag) {
+				if (settings.isExtern) {
+					if (settings.currentAccessLevel == Token::Private) {
+						return Token::Remove;
+					}
 					ret.children.emplace(ret.begin(), Token("extern ", g.location()));
 				}
 
@@ -1022,7 +1025,10 @@ map<Token::Type, mapFunc_t*> genMap = {
 			else if(type == Token::AsClause || type == Token::TypeCharacterClause) {
 				auto ret = generateCpp(g[1]);
 
-				if (showExternTag) {
+				if (settings.isExtern) {
+					if (settings.currentAccessLevel == Token::Private) {
+						return Token::Remove;
+					}
 					ret.children.emplace(ret.begin(), Token("extern ", g.location()));
 				}
 
@@ -1258,14 +1264,6 @@ map<Token::Type, mapFunc_t*> genMap = {
 
 			auto type = generateTypeGroup(g.back().token);
 
-			bool isExtern = false;
-
-			if (currentFunction.name.empty() && currentType.name.empty()) {
-				if (settings.unitType == Token::Module) {
-					isExtern = settings.headerMode;
-				}
-			}
-
 			auto prepareMember = [] (const Token &t) {
 				// Save the name to make it possible to list it when creating type
 				if (!currentType.name.empty()) {
@@ -1277,14 +1275,14 @@ map<Token::Type, mapFunc_t*> genMap = {
 			};
 
 			if (g.front().type() == Token::FunctionCallOrPropertyAccessor) {
-				vout << "variable " << g.front().front().token.wordSpelling() << " is array of type " << type.spelling() << endl;;
 				auto name = g.front().front().token.strip();
+				vout << "variable " << name.wordSpelling() << " is array of type " << type.spelling() << endl;;
 				auto arguments = generateCpp(g.front().back()).spelling();
 				if (arguments == "()") {
 					// One important difference between visual basic and cpp
 					arguments = "";
 				}
-				else if (isExtern) {
+				else if (settings.isExtern) {
 					arguments = ""; // Arguments should not be appended to variables defined as extern
 				}
 				ret.push_back(Token("VBArray <", g.location()));
@@ -1301,7 +1299,7 @@ map<Token::Type, mapFunc_t*> genMap = {
 				settings.classReferences.insert(newTypeName.spelling());
 
 				string arguments = " (new "	+ newTypeName.wordSpelling() + ")";
-				if (isExtern) {
+				if (settings.isExtern) {
 					arguments = "";
 				}
 
