@@ -62,6 +62,9 @@ static struct {
 	bool extractTypesAndEnums = true;
 	std::vector<Group> extractedSymbols;
 
+	bool replaceEnumWithConsts = true;
+	int currentEnumNumber = 0;
+
 	set<string> classReferences;
 	set<string> typeReferences;
 	set<string> functionReferences;
@@ -571,6 +574,15 @@ map<Token::Type, mapFunc_t*> genMap = {
 
 
 		{Token::Word,  [] (const Group &g) -> Group {
+			if (settings.currentScopeType == ScopeType::Enum) {
+				if (settings.replaceEnumWithConsts) {
+					return Group({
+						Token("const int ", g.location()),
+							g.strip(),
+							Token(" = " + to_string(settings.currentEnumNumber++), g.location())
+					});
+				}
+			}
 			if (!g.empty()) {
 				throw GenerateError(g, "Word has children");
 			}
@@ -578,7 +590,7 @@ map<Token::Type, mapFunc_t*> genMap = {
 				return Token("_ret", g.location());
 			}
 			else {
-				return Token(g.token.wordSpelling(), g.location(), Token::Word);
+				return g.strip(); //Token(g.token.wordSpelling(), g.location(), Token::Word);
 			}
 		}},
 
@@ -712,9 +724,16 @@ map<Token::Type, mapFunc_t*> genMap = {
 					ret.type(Token::CPublicEnum);
 				}
 
-				currentLineEnding = ",";
-				endBlockString = "};";
+				if (settings.replaceEnumWithConsts) {
+					currentLineEnding = ";";
+					endBlockString = "";
+				}
+				else {
+					currentLineEnding = ",";
+					endBlockString = "};";
+				}
 				settings.currentScopeType = ScopeType::Enum;
+				settings.currentEnumNumber = 0;
 			}
 			else if (blockType == Token::IfStatement) {
 				ret.push_back(Token("if (", g.location()));
@@ -1098,10 +1117,18 @@ map<Token::Type, mapFunc_t*> genMap = {
 		{Token::EnumStatement, [] (const Group &g) -> Group {
 			ExpectSize(g, 2);
 			auto name = g.back().token.wordSpelling();
-			return Group({Token("enum ", g.location()),
-				Token(name, g.location(), Token::CSymbolName),
-				Token(" {\n", g.location())
-			});
+			if (settings.replaceEnumWithConsts) {
+				return Group({Token("typedef int ", g.location()),
+					Token(name, g.location(), Token::CSymbolName),
+					Token(";\n", g.location())
+				});
+			}
+			else {
+				return Group({Token("enum ", g.location()),
+					Token(name, g.location(), Token::CSymbolName),
+					Token(" {\n", g.location())
+				});
+			}
 		}},
 
 

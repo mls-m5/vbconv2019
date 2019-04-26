@@ -17,7 +17,19 @@
 #include <chrono>
 #include <sstream>
 
+namespace std {
+// Without these the compiler will complain when using to_string on strings
+	std::string to_string(const string& str) {
+		return str;
+	}
+	std::string to_string(const char *c) {
+		return std::string(c);
+	}
+}
+
+namespace VB {
 typedef double Currency;
+typedef long Date;
 
 template <class T>
 class VBArray: public std::vector<T> {
@@ -33,16 +45,6 @@ public:
 		return this;
 	}
 };
-
-namespace std {
-// Without these the compiler will complain when using to_string on strings
-	std::string to_string(const string& str) {
-		return str;
-	}
-	std::string to_string(const char *c) {
-		return std::string(c);
-	}
-}
 
 class VBString: public std::string {
 public:
@@ -105,10 +107,12 @@ void Randomize(int number = 0) {
 	}
 }
 
-#define Cos cos
-#define Sin sin
-#define Sqr sqrt
-typedef long Date;
+template <typename T>
+inline double Cos(T val) { return cos(val); };
+template <typename T>
+inline double Sin(T val) { return sin(val); };
+template <typename T>
+inline double Sqr(T val) { return sqrt(val); };
 
 template <typename T>
 long Int(T i) {
@@ -190,6 +194,9 @@ const T* _with_fixer(const T&i) {
     return &i;
 }
 
+} //namespace VB
+
+using namespace VB;
 
 
 
