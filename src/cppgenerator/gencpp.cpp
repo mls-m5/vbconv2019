@@ -68,6 +68,7 @@ static struct {
 	set<string> classReferences;
 	set<string> typeReferences;
 	set<string> functionReferences;
+	set<string> variableReferences;
 
 	ScopeType currentScopeType = ScopeType::None;
 
@@ -149,6 +150,10 @@ void addReferenceToType(std::string typeName) {
 
 void addReferenceToFunction(std::string fname) {
 	settings.functionReferences.insert(fname);
+}
+
+void addReferenceToVariable(std::string name) {
+	settings.variableReferences.insert(name);
 }
 
 std::vector<Group> &getExtractedSymbols() {
@@ -281,11 +286,19 @@ map<Token::Type, mapFunc_t*> genMap = {
 
 			for (auto &ref: settings.functionReferences) {
 				auto unit = getUnitForSymbol(ref);
-				if (unit.empty()) {
-					continue;
+				if (!unit.empty()) {
+					unitReferences.insert(unit); //This references the unit directly, not a special header
 				}
-				unitReferences.insert(unit); //This references the unit directly, not a special header
 			}
+
+
+			for (auto &ref: settings.variableReferences) {
+				auto unit = getUnitForSymbol(ref);
+				if (!unit.empty()) {
+					unitReferences.insert(unit); //This references the unit directly, not a special header
+				}
+			}
+
 
 			unitReferences.erase("");
 			unitReferences.erase(settings.unitName);
@@ -503,7 +516,12 @@ map<Token::Type, mapFunc_t*> genMap = {
 			if (g.back().type() == Token::PropertyAccessor) {
 				auto &propertyAccessor = g.back();
 				ExpectSize(g, 2);
-				return Group({generateCpp(g.front()), Token("->", g.location()), generateCpp(propertyAccessor.back())}, Token::CPropertyAccessor);
+
+				auto name = generateCpp(g.front());
+				if (name == Token::Word) {
+					addReferenceToVariable(name.strip().spelling());
+				}
+				return Group({name, Token("->", g.location()), generateCpp(propertyAccessor.back())}, Token::CPropertyAccessor);
 			}
 			else if (g.back().type() == Token::Parenthesis) {
 				//Function call:

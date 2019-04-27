@@ -27,6 +27,8 @@ enum class ScopeType {
 	Class,
 	Module,
 	Array,
+	Variable,
+	Const,
 	Function,
 	FunctionArguments,
 };

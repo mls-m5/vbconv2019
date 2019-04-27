@@ -104,8 +104,9 @@ void fastParseFileForDeclarations(string filename) {
 			}
 			vout << "in " << filename << " " << " found definition of " << word << endl;
 			declaredTypes.emplace_back(word, type, filename);
+			prevWord.clear();
 		}
-		if ((word == "sub" || word == "function") && (prevWord != "end" && prevWord != "exit")) {
+		else if ((word == "sub" || word == "function") && (prevWord != "end" && prevWord != "exit")) {
 			file >> word;
 			if (!includePrivate && prevWord != "public") {
 				vout << "skipping private function " << word << endl;
@@ -113,6 +114,21 @@ void fastParseFileForDeclarations(string filename) {
 			}
 			vout << "in " << filename << " " << " found definition of function " << word << endl;
 			declaredTypes.emplace_back(word, ScopeType::Function, filename);
+			prevWord.clear();
+		}
+		else if(prevWord == "public") {
+			auto type = ScopeType::Variable;
+			if (word == "const") {
+				file >> word;
+				vout << "const: ";
+				type = ScopeType::Const;
+			}
+
+			else {
+				vout << "in " << filename << " " << " found definition of variable " << word << endl;
+				declaredTypes.emplace_back(word, type, filename);
+			}
+			prevWord.clear();
 		}
 		swap(word, prevWord);
 	}
