@@ -137,10 +137,11 @@ enum {
 
 	vbKeyA,
 	vbKeyD,
-	vbKeyW,
+	vbKeyL,
 	vbKeyN,
 	vbKeyO,
 	vbKeyS,
+	vbKeyW,
 	vbKeyZ,
 	vbKeyAdd,
 	vbKeySubtract,

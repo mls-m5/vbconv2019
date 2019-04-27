@@ -48,6 +48,12 @@ struct {
 } currentType;
 
 static struct {
+	bool insertLineNumberReference = false;
+	bool replaceEnumWithConsts = true;
+
+} persistent;
+
+static struct {
 	bool headerMode = true;
 	string filename;
 	string unitName;
@@ -62,7 +68,6 @@ static struct {
 	bool extractTypesAndEnums = true;
 	std::vector<Group> extractedSymbols;
 
-	bool replaceEnumWithConsts = true;
 	int currentEnumNumber = 0;
 
 	set<string> classReferences;
@@ -127,6 +132,10 @@ string getCurrentUnitName() {
 
 std::vector<std::string> &getUnitReferences() {
 	return settings.unitReferences;
+}
+
+void setInsertLineNumberReference(bool state) {
+	persistent.insertLineNumberReference = state;
 }
 
 void setFilename(string filename) {
@@ -317,7 +326,6 @@ map<Token::Type, mapFunc_t*> genMap = {
 
 
 			if (settings.unitType == Token::Module) {
-//				unitName = string(unitName.begin(), unitName.end() - 4);
 				ret.children.insert(ret.begin(), Token("namespace " + settings.unitName + " {\n", ret.location()));
 				ret.push_back(Token("} // namespace \nusing namespace " + settings.unitName + ";\n", ret.location()));
 			}
@@ -593,7 +601,7 @@ map<Token::Type, mapFunc_t*> genMap = {
 
 		{Token::Word,  [] (const Group &g) -> Group {
 			if (settings.currentScopeType == ScopeType::Enum) {
-				if (settings.replaceEnumWithConsts) {
+				if (persistent.replaceEnumWithConsts) {
 					return Group({
 						Token("const int ", g.location()),
 							g.strip(),
@@ -623,7 +631,7 @@ map<Token::Type, mapFunc_t*> genMap = {
 				return Token("return", g.location());
 			}
 			else if (type == Token::Function) {
-				return Token("return " + currentFunction.name, g.location());
+				return Token("return _ret", g.location());
 			}
 			else if (type == Token::Do || type == Token::For) {
 				return Token("break", g.location());
@@ -643,7 +651,6 @@ map<Token::Type, mapFunc_t*> genMap = {
 
 
 		{Token::Line,  [] (const Group &g) -> Group {
-			Group ret;
 			if (g.size() == 1 && g.front().type() == Token::Word && settings.currentScopeType == ScopeType::Function) {
 				return Token(getIndent() + g.front().token.wordSpelling() + "();\n", g.location());
 			}
@@ -672,7 +679,7 @@ map<Token::Type, mapFunc_t*> genMap = {
 					}
 				}
 			}
-			return ret;
+			return Group(Token::Remove);
 		}},
 
 
@@ -742,7 +749,7 @@ map<Token::Type, mapFunc_t*> genMap = {
 					ret.type(Token::CPublicEnum);
 				}
 
-				if (settings.replaceEnumWithConsts) {
+				if (persistent.replaceEnumWithConsts) {
 					currentLineEnding = ";";
 					endBlockString = "";
 				}
@@ -794,6 +801,12 @@ map<Token::Type, mapFunc_t*> genMap = {
 						insertBreak();
 					}
 					needsBreak = true;
+				}
+				if (persistent.insertLineNumberReference) {
+					if (it->location().file) {
+						ret.push_back(Token("# " + to_string(it->location().line)
+								+ " \"" + it->location().file->filename + "\"\n", it->location()));
+					}
 				}
 				ret.push_back(move(line));
 			}
@@ -1135,7 +1148,7 @@ map<Token::Type, mapFunc_t*> genMap = {
 		{Token::EnumStatement, [] (const Group &g) -> Group {
 			ExpectSize(g, 2);
 			auto name = g.back().token.wordSpelling();
-			if (settings.replaceEnumWithConsts) {
+			if (persistent.replaceEnumWithConsts) {
 				return Group({Token("typedef int ", g.location()),
 					Token(name, g.location(), Token::CSymbolName),
 					Token(";\n", g.location())

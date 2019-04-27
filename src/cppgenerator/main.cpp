@@ -71,6 +71,9 @@ int main(int argc, char **argv) {
 			else if (arg == "--byref") {
 				byvalRefType = false;
 			}
+			else if (arg == "-l") {
+				setInsertLineNumberReference(true);
+			}
 			else if (i + 1 < argc) {
 				if (arg == "-o") {
 					outputFile = argv[++i];
@@ -101,6 +104,7 @@ int main(int argc, char **argv) {
 		cout << "--references [...]  specify which objects to link together (standard is all files in folder)" << endl;
 		cout << "--byval             switch to byval as standard instead of byref" << endl;
 		cout << "--byref             switch to byval as standard" << endl;
+		cout << "-l                  insert g++ line hints" << endl;
 		return 0;
 	}
 

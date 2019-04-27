@@ -34,6 +34,9 @@ void addReferenceToType(std::string className);
 void setVerboseOutput(bool state);
 extern bool verboseOutput;
 
+// If true outputs directives telling g++ which g++ line it is on
+void setInsertLineNumberReference(bool state);
+
 // Get types and enums that is supposed to be extracted to
 // separate files
 std::vector<Group> &getExtractedSymbols();
