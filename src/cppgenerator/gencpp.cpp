@@ -437,6 +437,19 @@ map<Token::Type, mapFunc_t*> genMap = {
 			return ret;
 		}},
 
+		{Token::DateLiteral,  [] (const Group &g) -> Group {
+			if (g.size() == 7) {
+				// American date format
+				auto month = g[1].spelling();
+				auto day = g[3].spelling();
+				auto year = g[5].spelling();
+				return Token("Date("s + year + ", " + month + ", " + day + ")", g.location());
+			}
+			else {
+				throw GenerateError(g, "Could not parse date format");
+			}
+		}},
+
 
 		{Token::Exponentiation,  [] (const Group &g) -> Group {
 			if (g.size() != 3) {

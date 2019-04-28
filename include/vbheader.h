@@ -29,7 +29,6 @@ namespace std {
 
 namespace VB {
 typedef double Currency;
-typedef long Date;
 
 template <class T>
 class VBArray: public std::vector<T> {
@@ -93,10 +92,38 @@ double Rnd() {
 	return (double) rand() / RAND_MAX;
 }
 
-long Timer() {
+double Timer() {
 	using namespace std::chrono;
 	return duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
 }
+
+
+struct Date {
+	// Stores the curent date as fractions of a day
+
+	Date() {};
+	Date(double v): value(v) {}
+	Date(int year, int month, int day) {
+		time_t zero = 0;
+		auto tm = *localtime(&zero);
+		value = std::mktime(&tm);
+	}
+
+	operator double() {
+		return value;
+	};
+
+	friend std::ostream& operator<<(std::ostream &stream, const Date &d) {
+		return stream << d.value;
+	}
+
+	friend std::istream& operator>>(std::istream &stream, Date &d) {
+		return stream >> d.value;
+	}
+
+	double value = 0;
+};
+
 
 void Randomize(int number = 0) {
 	if (number == 0) {
