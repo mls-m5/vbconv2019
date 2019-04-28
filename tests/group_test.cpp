@@ -252,6 +252,15 @@ End Sub
 	ASSERT_EQ(f.tokens.size(), 2);
 }
 
+TEST_CASE("with-property accessor after method call") {
+	TestFile f("x .y");
+
+	ASSERT_EQ(f.tokens.front().front().type(), Token::MethodCall);
+
+	TestFile g("x.y");
+	ASSERT_EQ(g.tokens.front().front().type(), Token::FunctionCallOrPropertyAccessor);
+}
+
 TEST_CASE("comment after declaration") {
 	TestFile f("Dim x! 'This is a comment");
 

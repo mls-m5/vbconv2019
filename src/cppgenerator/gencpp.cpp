@@ -70,6 +70,7 @@ static struct {
 	std::vector<Group> extractedSymbols;
 
 	int currentEnumNumber = 0;
+	int currentWithStatement = 0;
 
 	set<string> classReferences;
 	set<string> typeReferences;
@@ -520,7 +521,7 @@ map<Token::Type, mapFunc_t*> genMap = {
 		{Token::PropertyAccessor,  [] (const Group &g) -> Group {
 			ExpectSize(g, 2);
 
-			return Group({Token("_with->", g.location()), generateCpp(g.back())}, Token::CPropertyAccessor);
+			return Group({Token("_with" + to_string(settings.currentWithStatement) + "->", g.location()), generateCpp(g.back())}, Token::CPropertyAccessor);
 		}},
 
 
@@ -727,6 +728,7 @@ map<Token::Type, mapFunc_t*> genMap = {
 
 			SettingGuard<ScopeType> guard(settings.currentScopeType, settings.currentScopeType);
 			SettingGuard<string> guard2(currentLineEnding);
+			SettingGuard<int> guard3(settings.currentWithStatement);
 
 			ret.push_back(Token(getIndent(), g.location()));
 
@@ -818,11 +820,12 @@ map<Token::Type, mapFunc_t*> genMap = {
 
 				ExpectSize(with, 2);
 
-
 				ret.children.push_back(Group({
-					Token("{\n" + getIndent(depth + 1) + "auto _with = _with_fixer(",
+					Token("{\n" + getIndent(depth + 1) + "auto _with" + to_string(settings.currentWithStatement + 1) + " = _with_fixer(",
 							with.location()),
 									generateCpp(with.back()), Token(");", g.location())}));
+
+				++ settings.currentWithStatement;
 
 				ret.push_back(Token("\n", g.location()));
 			}

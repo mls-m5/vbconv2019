@@ -129,6 +129,7 @@ enum {
 	vbWhite,
 	vbRed,
 	vbYellow,
+	vbGreen,
 
 	vbKeyRight,
 	vbKeyLeft,

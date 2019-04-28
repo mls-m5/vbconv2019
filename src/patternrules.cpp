@@ -101,7 +101,15 @@ vector<Pattern> patternRules = {
 		return true;
 	}}),
 	{{Token::Dot, {Token::Word, Token::Me}}, Token::PropertyAccessor},
-	{{{Token::Word, Token::PropertyAccessor, Token::FunctionCallOrPropertyAccessor, Token::Me}, {Token::Parenthesis, Token::PropertyAccessor}}, Token::FunctionCallOrPropertyAccessor, Pattern::FromLeft, Token::Any, {Token::SubStatement, Token::LineDrawStatement}},
+	{{{Token::Word, Token::PropertyAccessor, Token::FunctionCallOrPropertyAccessor, Token::Me}, {Token::Parenthesis, Token::PropertyAccessor}}, Token::FunctionCallOrPropertyAccessor, Pattern::FromLeft, Token::Any, {Token::SubStatement, Token::LineDrawStatement}, [] (Pattern &p, int index, Group &g) {
+		if (g[index + 1] == Token::PropertyAccessor) {
+			if (!g[index].token.trailingSpace.empty()) {
+				// If there is a space before it is probably a accessor to a with statement
+				return false;
+			}
+		}
+		return true;
+	}},
 	{{Token::With, {Token::Word, Token::PropertyAccessor, Token::FunctionCallOrPropertyAccessor}}, Token::WithStatement},
 	{{Token::Select, Token::Case, Token::Any}, Token::SelectCaseStatement},
 	{{Token::TypeKeyword, Token::Any}, Token::TypeStatement},
