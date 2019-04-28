@@ -750,6 +750,19 @@ map<Token::Type, mapFunc_t*> genMap = {
 
 				ret.push_back(generateCpp(*typeBlock));
 
+				// Enums and types are default public
+				if (auto specifier = block.getByType(Token::AccessSpecifier)) {
+					if (specifier->front().type() != Token::Private) {
+						isPublic = true;
+					}
+					else {
+						isPublic = false;
+					}
+				}
+				else {
+					isPublic = true;
+				}
+
 				if (isPublic) {
 					ret.type(Token::CPublicType);
 				}
@@ -765,7 +778,7 @@ map<Token::Type, mapFunc_t*> genMap = {
 				ret.push_back(generateCpp(*enumBlock));
 
 
-				// Enums are default public, so this is a special case
+				// Enums and types are default public
 				if (auto specifier = block.getByType(Token::AccessSpecifier)) {
 					if (specifier->front().type() != Token::Private) {
 						isPublic = true;

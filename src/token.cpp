@@ -179,7 +179,7 @@ void Group::groupLines() {
 	}
 }
 
-void Group::groupBlocks(size_t b) {
+void Group::groupBlocks(size_t b, bool isroot) {
 	//Todo: This function needs to be optimized for performance
 	const map<Token::Type, Token::Type> blockNames {
 			{Token::Class, Token::End},
@@ -253,13 +253,13 @@ void Group::groupBlocks(size_t b) {
 
 	auto first = begin() + b;
 	auto res = isBlockStart(*first);
-	if (res.first) {
+	if (!isroot && res.first) {
 		endType = res.second;
 		++first;
 	}
 	for (auto it=first; it != end(); ++it) {
 		if (isBlockStart(*it).first) {
-			groupBlocks(it - begin());
+			groupBlocks(it - begin(), false);
 		}
 		else if (endType != Token::None && isBlockEnd(*it)) {
 			(begin() + b)->type(Token::BlockBegin);

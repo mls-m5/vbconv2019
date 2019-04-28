@@ -176,6 +176,8 @@ public:
 	Token token;
 	Token endToken;
 	std::vector<Group> children;
+	typedef std::vector<Group>::iterator iterator;
+	typedef std::vector<Group>::const_iterator const_iterator;
 
 	Group() = default;
 	Group(Group &&) = default;
@@ -206,19 +208,19 @@ public:
 		return token == str;
 	}
 
-	auto begin() {
+	iterator begin() {
 		return children.begin();
 	}
 
-	const auto begin() const {
+	const_iterator begin() const {
 		return children.begin();
 	}
 
-	auto end() {
+	iterator end() {
 		return children.end();
 	}
 
-	const auto end() const {
+	const_iterator end() const {
 		return children.end();
 	}
 
@@ -416,20 +418,20 @@ public:
 	void groupLines();
 
 	// Recursiely group blocks like if,.. endif etc
-	void groupBlocks(size_t begin);
+	void groupBlocks(size_t begin, bool isroot = true);
 
 	//Do the more advanced pattern matching
 	void groupPatterns();
 
 	void verify(); // Check for obvious syntax errors
 
-	void group(
+	size_t group(
 			std::vector<Group>::iterator b,
 			std::vector<Group>::iterator e,
 			bool stripOuter = false,
 			Token::Type t = Token::None)
 	{
-		group(b - begin(), e - begin(), stripOuter, t);
+		return group(b - begin(), e - begin(), stripOuter, t);
 	}
 
 	inline bool operator ==(Token::Type t) const {
@@ -443,9 +445,9 @@ public:
 	// create a group for a range
 	// if t == Tokens::None the type of the first token will not change
 	// otherwise the first token get the type of t
-	void group(size_t b, size_t e, bool stripOuter = false, Token::Type t = Token::None) {
+	size_t group(size_t b, size_t e, bool stripOuter = false, Token::Type t = Token::None) {
 		if (b == e) {
-			return;
+			return 0;
 		}
 
 		//From here
@@ -475,6 +477,7 @@ public:
 		children.erase(children.begin() + b + 1, children.begin() + e);
 
 		children[b] = std::move(group);
+		return e - b;
 	}
 
 	Group flattenCommaList() const;

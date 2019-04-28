@@ -234,6 +234,24 @@ TEST_CASE("logical operators") {
 	ASSERT_EQ(f.tokens.front().size(), 1);
 }
 
+TEST_CASE("special group problem") {
+	TestFile f(R"_(
+
+Public Type RECT
+	x as Integer	
+End Type
+
+Public Sub Clear()
+	Systemt.print "hej"
+End Sub
+
+
+
+)_");
+
+	ASSERT_EQ(f.tokens.size(), 2);
+}
+
 TEST_CASE("comment after declaration") {
 	TestFile f("Dim x! 'This is a comment");
 
