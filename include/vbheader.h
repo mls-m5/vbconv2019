@@ -19,10 +19,10 @@
 
 namespace std {
 // Without these the compiler will complain when using to_string on strings
-	std::string to_string(const string& str) {
+	inline std::string to_string(const string& str) {
 		return str;
 	}
-	std::string to_string(const char *c) {
+	inline std::string to_string(const char *c) {
 		return std::string(c);
 	}
 }
@@ -88,11 +88,11 @@ public:
 	}
 };
 
-double Rnd() {
+inline double Rnd() {
 	return (double) rand() / RAND_MAX;
 }
 
-double Timer() {
+inline double Timer() {
 	using namespace std::chrono;
 	return duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
 }
@@ -125,7 +125,7 @@ struct Date {
 };
 
 
-void Randomize(int number = 0) {
+inline void Randomize(int number = 0) {
 	if (number == 0) {
 		srand(Timer());
 	}
@@ -142,11 +142,11 @@ template <typename T>
 inline double Sqr(T val) { return sqrt(val); };
 
 template <typename T>
-long Int(T i) {
+inline long Int(T i) {
 	return (long) i;
 }
 
-std::string Chr(char c) {
+inline std::string Chr(char c) {
 	return std::string(1, c);
 }
 
@@ -169,6 +169,7 @@ enum {
 	vbKeyN,
 	vbKeyO,
 	vbKeyS,
+	vbKeyR,
 	vbKeyW,
 	vbKeyZ,
 	vbKeyAdd,
@@ -178,25 +179,26 @@ enum {
 	vbKeySpace,
 	vbKeyShift,
 	vbKeyReturn,
+	vbKeyEscape,
 };
 
 
 template <typename T>
-static void _save(std::ostream &stream, T value) {
+inline void _save(std::ostream &stream, T value) {
 	stream.write((char *)&value, sizeof(value));
 }
 
 template <typename T>
-static void _load(std::istream &stream, T &value) {
+inline void _load(std::istream &stream, T &value) {
 	stream.read((char *)&value, sizeof(value));
 }
 
-static void _save(std::ostream &stream, Currency value) {
+inline void _save(std::ostream &stream, Currency value) {
 	long long out = 1000LL * value;
 	stream.write((char *)&out, sizeof(out));
 }
 
-static void _load(std::istream &stream, Currency &value) {
+inline void _load(std::istream &stream, Currency &value) {
 	long long in = 0;
 	stream.read((char *)&in, sizeof(in));
 	value = (double)in / 1000.;
@@ -208,19 +210,19 @@ static void _load(std::istream &stream, Currency &value) {
 
 // This will match shared pointers
 template <typename T>
-T *_with_fixer(std::shared_ptr<T> i) {
+inline T *_with_fixer(std::shared_ptr<T> i) {
     return i.get();
 }
 
 // This will match actual values
 template <typename T>
-T *_with_fixer(T &i) {
+inline T *_with_fixer(T &i) {
     return &i;
 }
 
 // This will match for example return values from functions
 template <typename T>
-const T* _with_fixer(const T&i) {
+inline const T* _with_fixer(const T&i) {
     return &i;
 }
 
@@ -232,10 +234,10 @@ using namespace VB;
 
 // Functions not implemented yet
 
-void DoEvents() {}; //Todo: Implement
+inline void DoEvents() {}; //Todo: Implement
 
-VBString InputBox(VBString text, VBString title = {}, VBString defaultValue = {});
+inline VBString InputBox(VBString text, VBString title = {}, VBString defaultValue = {});
 
-void Cls();
-void Print(VBString text);
-void Line(double x1, double y1, double x2, double y2);
+inline void Cls();
+inline void Print(VBString text);
+inline void Line(double x1, double y1, double x2, double y2);

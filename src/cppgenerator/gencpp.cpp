@@ -1009,7 +1009,7 @@ map<Token::Type, mapFunc_t*> genMap = {
 					if (type.spelling() != "void") {
 						ret.push_back(Token(getIndent(depth + 1), g.location()));
 						ret.push_back(type);
-						ret.push_back(Token(" _ret"s + ";\n", g.location()));
+						ret.push_back(Token(" _ret = {}"s + ";\n", g.location()));
 					}
 				}
 
