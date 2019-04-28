@@ -248,7 +248,7 @@ map<Token::Type, mapFunc_t*> genMap = {
 		{Token::Root,  [] (const Group &g) -> Group {
 			Group ret;
 			auto lcaseName = settings.unitName;
-			transform(lcaseName.begin(), lcaseName.end(), lcaseName.begin(), ::tolower);
+//			transform(lcaseName.begin(), lcaseName.end(), lcaseName.begin(), ::tolower);
 
 			string headerString =  "// Generated with Lasersköld vb6conv cpp-generator\n\n";
 
@@ -320,7 +320,8 @@ map<Token::Type, mapFunc_t*> genMap = {
 
 			vout << "references to units" << endl;
 			for (auto u: unitReferences) {
-				auto headerName = toLower(u) + ".h";
+//				auto headerName = toLower(u) + ".h";
+				auto headerName = u + ".h";
 				headerString += "#include \"" + headerName + "\"\n";
 				vout << "\t" << u << endl;
 

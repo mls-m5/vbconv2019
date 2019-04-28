@@ -172,9 +172,11 @@ int main(int argc, char **argv) {
 			if (typeDeclaration) {
 				auto unitName = typeDeclaration->sourceUnit;
 				vout << r->spelling() << " in " << unitName << endl;
-				auto dependencyName = toLower(unitName + "-" + r->spelling()) + ".h";
+//				auto dependencyName = toLower(unitName + "-" + r->spelling()) + ".h";
+				auto dependencyName = unitName + "-" + r->spelling() + ".h";
 				if (typeDeclaration->type == ScopeType::Class) {
-					dependencyName = toLower(unitName) + ".h";
+//					dependencyName = toLower(unitName) + ".h";
+					dependencyName = unitName + ".h";
 				}
 				stream << "#include \"" + dependencyName + "\"\n" << endl;
 				dependencies.push_back(dependencyName);
@@ -198,7 +200,8 @@ int main(int argc, char **argv) {
 		symbolStrings.reserve(symbolStrings.size() + extractedSymbols.size());
 		for (auto &symbol: extractedSymbols) {
 			auto symbolNameGroup = symbol.getByType(Token::CSymbolName);
-			auto symbolOutputFile = getDirectory(outputFile) + unitName + "-" +  toLower(symbolNameGroup->spelling()) + ".h";
+//			auto symbolOutputFile = getDirectory(outputFile) + unitName + "-" +  toLower(symbolNameGroup->spelling()) + ".h";
+			auto symbolOutputFile = getDirectory(outputFile) + unitName + "-" +  symbolNameGroup->spelling() + ".h";
 			vout << "-- outputting to file --> " << symbolOutputFile << endl;
 			ofstream file(symbolOutputFile);
 			if (!file.is_open()) {
