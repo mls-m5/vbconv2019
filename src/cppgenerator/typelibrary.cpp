@@ -16,6 +16,7 @@
 #include <fstream>
 #include <sys/stat.h>
 #include <algorithm>
+#include <sstream>
 
 #include "common.h"
 
@@ -98,13 +99,37 @@ void fastParseFileForDeclarations(string filename) {
 				type = ScopeType::Enum;
 			}
 			file >> word;
-			if (!includePrivate && prevWord != "public") {
+
+			if (type == ScopeType::Type && !includePrivate && prevWord != "public") {
 				vout << "skipping private type " << word << endl;
+				continue;
+			}
+			else if (type == ScopeType::Enum && !includePrivate && prevWord == "private") {
+				//Enums are public by default
+				vout << "skipping private enum " << word << endl;
 				continue;
 			}
 			vout << "in " << filename << " " << " found definition of " << word << endl;
 			declaredTypes.emplace_back(word, type, filename);
 			prevWord.clear();
+
+
+			if (type == ScopeType::Enum) {
+				string line;
+				getline(file, line); //Clears the last line
+				while (getline(file, line)) {
+					stringstream ss(line);
+					ss >> word;
+
+					if (toLower(word) == "end") {
+						dout << "end of enum" << endl;
+						break;
+					}
+
+					vout << "added reference to enum value (const) " << word << endl;
+					declaredTypes.emplace_back(word, ScopeType::Const, filename);
+				}
+			}
 		}
 		else if ((word == "sub" || word == "function") && (prevWord != "end" && prevWord != "exit")) {
 			file >> word;

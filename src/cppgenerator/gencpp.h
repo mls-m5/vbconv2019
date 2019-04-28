@@ -32,7 +32,9 @@ void addReferenceToClass(std::string className);
 void addReferenceToType(std::string className);
 
 void setVerboseOutput(bool state);
+void setDebugOutput(bool state);
 extern bool verboseOutput;
+extern bool debugOutput;
 
 // If true outputs directives telling g++ which g++ line it is on
 void setInsertLineNumberReference(bool state);
@@ -46,3 +48,4 @@ std::vector<std::string> &getUnitReferences();
 
 
 #define vout if (vbconv::verboseOutput) cout
+#define dout if (vbconv::debugOutput) cout

@@ -65,6 +65,10 @@ int main(int argc, char **argv) {
 			else if (arg == "-v") {
 				setVerboseOutput(true);
 			}
+			else if (arg == "-d") {
+				setVerboseOutput(true);
+				setDebugOutput(true);
+			}
 			else if (arg == "--byval") {
 				byvalRefType = true;
 			}
@@ -100,7 +104,8 @@ int main(int argc, char **argv) {
 		cout << "-o                  set location of output file" << endl;
 		cout << "-o ./               set location of output file" << endl;
 		cout << "-o -                output to std out" << endl;
-		cout << "-v                  show extra text output " << endl;
+		cout << "-v                  show extra text output" << endl;
+		cout << "-d                  show information interesting for developers" << endl;
 		cout << "--references [...]  specify which objects to link together (standard is all files in folder)" << endl;
 		cout << "--byval             switch to byval as standard instead of byref" << endl;
 		cout << "--byref             switch to byval as standard" << endl;

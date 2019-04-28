@@ -29,6 +29,7 @@ using namespace std;
 namespace vbconv {
 
 bool verboseOutput = false;
+bool debugOutput = false;
 
 Group generateCpp(const Group &g);
 
@@ -78,6 +79,7 @@ static struct {
 	ScopeType currentScopeType = ScopeType::None;
 
 	std::vector<string > unitReferences;
+	std::set<string> localFunctionVariables;
 
 	void clear() {
 		typedef remove_reference<decltype(*this)>::type thisType;
@@ -115,6 +117,10 @@ public:
 
 void setVerboseOutput(bool state) {
 	verboseOutput = state;
+}
+
+void setDebugOutput(bool state) {
+	debugOutput = state;
 }
 
 template <typename T>
@@ -581,7 +587,7 @@ map<Token::Type, mapFunc_t*> genMap = {
 		{Token::InlineIfStatement,  [] (const Group &g) -> Group {
 			ExpectSize(g, 4);
 
-			return Group({Token("if (", g.location()), makeRunnable(generateCpp(g[1])), Token(") ", g.location()), makeRunnable(generateCpp(g[3]))});
+			return Group({Token("if (", g.location()), generateCpp(g[1]), Token(") ", g.location()), makeRunnable(generateCpp(g[3]))});
 		}},
 
 
@@ -590,7 +596,7 @@ map<Token::Type, mapFunc_t*> genMap = {
 
 			return Group({
 				Token("if (", g.location()),
-						makeRunnable(generateCpp(g[1])),
+						generateCpp(g[1]),
 						Token(") ", g.location()),
 						makeRunnable(generateCpp(g[3])),
 						Token("; else ", g.location()),
@@ -616,6 +622,19 @@ map<Token::Type, mapFunc_t*> genMap = {
 				return Token("_ret", g.location());
 			}
 			else {
+				if (g == Token::Word) {
+					auto name = g.strip().spelling();
+					dout << "check reference for " << name << endl;
+					if (!name.empty()) {
+						if (settings.localFunctionVariables.find(name) != settings.localFunctionVariables.end()) {
+							dout << "is a local variable" << endl;
+						}
+						else {
+							dout << "adding reference to variable " << name << endl;
+							settings.variableReferences.insert(name);
+						}
+					}
+				}
 				return g.strip(); //Token(g.token.wordSpelling(), g.location(), Token::Word);
 			}
 		}},
@@ -745,6 +764,20 @@ map<Token::Type, mapFunc_t*> genMap = {
 
 				ret.push_back(generateCpp(*enumBlock));
 
+
+				// Enums are default public, so this is a special case
+				if (auto specifier = block.getByType(Token::AccessSpecifier)) {
+					if (specifier->front().type() != Token::Private) {
+						isPublic = true;
+					}
+					else {
+						isPublic = false;
+					}
+				}
+				else {
+					isPublic = true;
+				}
+
 				if (isPublic) {
 					ret.type(Token::CPublicEnum);
 				}
@@ -849,8 +882,9 @@ map<Token::Type, mapFunc_t*> genMap = {
 			}
 
 			if (functionStatement && settings.currentScopeType == ScopeType::Function) {
-				settings.currentScopeType = ScopeType::None;
-				currentFunction.name = "";
+//				settings.currentScopeType = ScopeType::None;
+//				currentFunction.name = "";
+				settings.localFunctionVariables.clear();
 			}
 
 
@@ -1326,6 +1360,9 @@ map<Token::Type, mapFunc_t*> genMap = {
 				// Save the name to make it possible to list it when creating type
 				if (!currentType.name.empty()) {
 					currentType.members.push_back(t);
+				}
+				if (settings.currentScopeType == ScopeType::Function) {
+					settings.localFunctionVariables.insert(t.strip().spelling());
 				}
 				auto ret = t;
 				ret.type = Token::CPrivateSymbol;
