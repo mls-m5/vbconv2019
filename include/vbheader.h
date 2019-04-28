@@ -149,6 +149,7 @@ enum {
 	vbKeyControl,
 	vbKeySpace,
 	vbKeyShift,
+	vbKeyReturn,
 };
 
 

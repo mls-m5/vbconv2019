@@ -234,7 +234,6 @@ Group makeRunnable(Group line) {
 		return line;
 	}
 	if (line.type() == Token::CPropertyAccessor || line.type() == Token::Word) {
-		//Trying to call a member variable
 		return Group({line, Token("()", line.location())});
 	}
 	else {
@@ -671,7 +670,10 @@ map<Token::Type, mapFunc_t*> genMap = {
 
 		{Token::Line,  [] (const Group &g) -> Group {
 			if (g.size() == 1 && g.front().type() == Token::Word && settings.currentScopeType == ScopeType::Function) {
-				return Token(getIndent() + g.front().token.wordSpelling() + "();\n", g.location());
+				auto name = g.front().token.wordSpelling();
+				dout << "Added reference to method call: " << name << endl;
+				addReferenceToFunction(name);
+				return Token(getIndent() + name + "();\n", g.location());
 			}
 			else if (!g.empty()) {
 				auto frontType = g.front().type();
