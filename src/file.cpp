@@ -269,7 +269,7 @@ void File::groupHeader() {
 		return;
 	}
 	if (!tokens.front().empty() && tokens.front().front().token.wordSpelling() == "VERSION") {
-		bool foundAttributes;
+		bool foundAttributes = false;
 		for (auto it = tokens.begin(); it != tokens.end(); ++it) {
 			if (foundAttributes) {
 				if (!it->empty() && it->front().token.wordSpelling() != "Attribute") {

@@ -197,7 +197,7 @@ std::string getUnitForSymbol(const std::string &symbol) {
 			return type.sourceUnit;
 		}
 	}
-	cerr << "Undefined reference to " << symbol << endl;
+	vout << "Undefined reference to " << symbol << endl;
 	return "";
 }
 
