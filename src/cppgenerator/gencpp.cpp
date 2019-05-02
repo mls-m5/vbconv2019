@@ -1038,10 +1038,15 @@ map<Token::Type, mapFunc_t*> genMap = {
 				fileNumberStatement = &fileNumberStatement->back();
 			}
 			auto filenumber = fileNumberStatement->back().wordSpelling();
+//			return Group({
+//				Token ("std::fstream _file" + filenumber + "(", g.location()),
+//						generateCpp(g[1]),
+//						Token(", std::ios::binary | std::ios::in | std::ios::out)", g.location()),
+//			});
 			return Group({
-				Token ("std::fstream _file" + filenumber + "(", g.location()),
+				Token ("VB::VBFile _file" + filenumber + "(", g.location()),
 						generateCpp(g[1]),
-						Token(", std::ios::binary | std::ios::in | std::ios::out)", g.location()),
+						Token(")", g.location()),
 			});
 		}},
 

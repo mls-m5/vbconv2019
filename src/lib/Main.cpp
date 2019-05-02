@@ -68,6 +68,7 @@ VBString InputBox(VBString text, VBString title, VBString defaultValue) {
 	}
 	cout << text << endl;
 	VBString response;
+
 	cin >> response;
 	return response;
 }

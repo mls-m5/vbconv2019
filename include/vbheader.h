@@ -17,6 +17,7 @@
 #include <chrono>
 #include <sstream>
 #include <cstdint>
+#include <algorithm>
 
 
 namespace std {
@@ -96,6 +97,65 @@ public:
 	VBString operator==(const T &value) {
 		return (std::string)value == *this;
 	}
+
+	friend VBString Replace(VBString str, VBString find, VBString to, int start = 0, int count = 0, int /*compare*/ = 0) {
+		size_t startPos = start;
+		while ((startPos = str.find(startPos, find)) != std::string::npos) {
+			str.replace(startPos, find.length(), to);
+			startPos += to.length();
+		}
+		return str;
+	}
+
+	friend VBString Trim(const VBString &str) {
+		int lfind;
+		for (lfind = 0; lfind < str.length(); ++lfind) {
+			if (!isspace(str.at(lfind))) {
+				lfind = std::max(lfind - 1, 0);
+				break;
+			}
+		}
+		int rfind;
+		for (rfind = str.length() - 1; rfind > lfind; --rfind) {
+			if (!isspace(str.at(rfind))) {
+				rfind = std::min(rfind + 1, (int)str.size());
+			}
+		}
+
+		return VBString(std::string(str.begin() + lfind, str.begin() + rfind));
+	}
+};
+
+
+bool FileExists(VBString filename);
+
+class VBFile: public std::fstream {
+public:
+	VBFile(VBString filename): std::fstream(fixFilename(filename), getFlags(fixFilename(filename))) {
+		if (!*this || !this->is_open()) {
+			throw "could not open file " + filename;
+		}
+	}
+
+	std::ios::openmode getFlags(const VBString &filename) {
+		if (FileExists(filename)) {
+			return std::ios::binary | std::ios::in | std::ios::out;
+		}
+		else {
+			// std::ios::trunc removes all content in a file if it exists
+			// it it necessary to use to create a file in random access mode
+			return std::ios::binary | std::ios::in | std::ios::out | std::ios::trunc;
+		}
+	}
+
+	VBString fixFilename(VBString filename) {
+#ifdef __WIN32__
+		return filename;
+#else
+		std::replace(filename.begin(), filename.end(), '\\', '/');
+		return filename;
+#endif
+	}
 };
 
 inline double Rnd() {
@@ -173,22 +233,22 @@ enum {
 	vbKeyUp,
 	vbKeyDown,
 
-	vbKeyA,
-	vbKeyD,
-	vbKeyL,
-	vbKeyN,
-	vbKeyO,
-	vbKeyS,
-	vbKeyR,
-	vbKeyW,
-	vbKeyZ,
-	vbKeyAdd,
-	vbKeySubtract,
+	vbKeyA = 'a',
+	vbKeyD = 'd',
+	vbKeyL = 'l',
+	vbKeyN = 'n',
+	vbKeyO = 'o',
+	vbKeyS = 's',
+	vbKeyR = 'r',
+	vbKeyW = 'w',
+	vbKeyZ = 'z',
+	vbKeyAdd = '+',
+	vbKeySubtract = '-',
 
 	vbKeyControl,
-	vbKeySpace,
+	vbKeySpace = ' ',
 	vbKeyShift,
-	vbKeyReturn,
+	vbKeyReturn = '\n',
 	vbKeyEscape,
 };
 
@@ -225,7 +285,6 @@ void DoEvents()
 {}
 #endif
 
-bool FileExists(VBString filename);
 
 VBString InputBox(VBString text, VBString title = {}, VBString defaultValue = {});
 void MessageBox(VBString text, VBString title = {});
@@ -238,22 +297,52 @@ using namespace VB;
 
 template <typename T>
 inline void _save(std::ostream &stream, T value) {
+	if (!stream) {
+		throw std::runtime_error("file is not open");
+	}
 	stream.write((char *)&value, sizeof(value));
 }
 
 template <typename T>
 inline void _load(std::istream &stream, T &value) {
+	if (!stream) {
+		throw std::runtime_error("file is not open");
+	}
 	stream.read((char *)&value, sizeof(value));
 }
 
 template <typename T>
+inline void _save(std::ostream &stream, VBArray<T> &value) {
+	if (!stream) {
+		throw std::runtime_error("file is not open");
+	}
+	short lowerBound = 1;
+	int upperBound = lowerBound + value.values.size();
+	stream.write((char *)&lowerBound, sizeof(lowerBound));
+	stream.write((char *)&upperBound, sizeof(upperBound));
+	value.resize(upperBound - lowerBound);
+	for (int i = lowerBound ; i <= upperBound; ++i) {
+		_save(stream, value(i - lowerBound));
+	}
+}
+template <typename T>
 inline void _load(std::istream &stream, VBArray<T> &value) {
+	if (!stream) {
+		throw std::runtime_error("file is not open");
+	}
 	short lowerBound;
 	int upperBound;
-	stream.read((char *)&lowerBound, sizeof(lowerBound));
-	stream.read((char *)&upperBound, sizeof(upperBound));
-	value.resize(upperBound - lowerBound - 1);
-	for (int i = lowerBound ; i < upperBound; ++i) {
+//	stream.read((char *)&lowerBound, sizeof(lowerBound));
+//	stream.read((char *)&upperBound, sizeof(upperBound));
+	_load(stream, lowerBound);
+	_load(stream, upperBound);
+
+	int padding;
+	_load(stream, padding);
+//	_load(stream, padding);
+
+	value.resize(upperBound - lowerBound);
+	for (int i = lowerBound ; i <= upperBound; ++i) {
 		T element;
 		_load(stream, element);
 		value(i - lowerBound) = element;
@@ -261,11 +350,17 @@ inline void _load(std::istream &stream, VBArray<T> &value) {
 }
 
 inline void _save(std::ostream &stream, Currency value) {
+	if (!stream) {
+		throw std::runtime_error("file is not open");
+	}
 	long long out = 1000LL * value;
 	stream.write((char *)&out, sizeof(out));
 }
 
 inline void _load(std::istream &stream, Currency &value) {
+	if (!stream) {
+		throw std::runtime_error("file is not open");
+	}
 	long long in = 0;
 	stream.read((char *)&in, sizeof(in));
 	value = (double)in / 1000.;

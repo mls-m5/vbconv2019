@@ -46,7 +46,7 @@ struct _FormImpl: public Window {
 		}
 	}
 
-	void clearLines() {
+	void cls() {
 		lines.clear();
 	}
 };
@@ -84,7 +84,7 @@ void Form::Line(double x1, double y1, double x2, double y2) {
 }
 
 void Form::Cls() {
-	// Todo: Implement this
+	impl->cls();
 }
 void Form::Print(VB::VBString text) {
 	// Todo: Implement this
