@@ -6,12 +6,12 @@
  */
 
 #include "common.h"
-#include "gencpp.h"
 #include "typelibrary.h"
 #include "file.h"
 #include <iostream>
 #include <string>
 #include <fstream>
+#include "cppgen.h"
 
 using namespace vbconv;
 using namespace std;

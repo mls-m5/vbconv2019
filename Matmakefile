@@ -8,13 +8,13 @@ flags += -Iinclude         # global flags
 flags += -ggdb -D_GLIBCXX_DEBUG -O0
 
 ## Main target
-main.flags += -W -Wall -Wno-unused-parameter -Wno-sign-compare #-Werror
-main.src = src/*.cpp src/ast/*.cpp
-main.exe = ast         # name of executable
-main.libs += # -lGL -lSDL  # libraries to add at link time
-# main.dir = bin/release   # set build path
-# main.objdir = bin/obj    # separates obj-files from build files
-# main.dll = lib           # use this instead of exe to create so/dll file
+ast.flags += -W -Wall -Wno-unused-parameter -Wno-sign-compare #-Werror
+ast.src = src/*.cpp src/ast/*.cpp
+ast.exe = ast         # name of executable
+ast.libs += 		  # libraries to add at link time
+# ast.dir = bin/release   # set build path
+# ast.objdir = bin/obj    # separates obj-files from build files
+# ast.dll = lib           # use this instead of exe to create so/dll file
 
 cppgen.exe = %
 cppgen.flags += -W -Wall -Wno-unused-parameter -Wno-sign-compare #-Werror
@@ -33,4 +33,5 @@ vbmake.flags += -W -Wall -Wno-unused-parameter -Wno-sign-compare #-Werror
 # main_debug.objdir = bin/debugobj
 
 external tests
+external matgui
 

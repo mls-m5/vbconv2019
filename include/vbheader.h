@@ -16,6 +16,8 @@
 #include <iostream>
 #include <chrono>
 #include <sstream>
+#include <cstdint>
+
 
 namespace std {
 // Without these the compiler will complain when using to_string on strings
@@ -31,18 +33,26 @@ namespace VB {
 typedef double Currency;
 
 template <class T>
-class VBArray: public std::vector<T> {
+class VBArray {
 public:
-	VBArray(size_t size): std::vector<T>(size) {}
+	VBArray(size_t size): values(size + 1) {}
 	VBArray() = default;
 
 	T &operator ()(size_t index) {
-		return this->at(index);
+		return values.at(index);
 	}
 
 	VBArray *operator ->() {
 		return this;
 	}
+
+	// Notice that a VB resize is adding one extra value to what you would do in
+	// c++ or some other language
+	void resize(size_t size) {
+		values.resize(size + 1);
+	}
+
+	std::vector<T> values;
 };
 
 class VBString: public std::string {
@@ -77,14 +87,14 @@ public:
 	VBString &operator =(const T& value) {
 		std::stringstream ss;
 		ss << value;
-		*this = ss.str();
+		assign(ss.str());
 
 		return *this;
 	}
 
 	template <typename T>
 	VBString operator==(const T &value) {
-		return (VBString)value == *this;
+		return (std::string)value == *this;
 	}
 };
 
@@ -183,28 +193,6 @@ enum {
 };
 
 
-template <typename T>
-inline void _save(std::ostream &stream, T value) {
-	stream.write((char *)&value, sizeof(value));
-}
-
-template <typename T>
-inline void _load(std::istream &stream, T &value) {
-	stream.read((char *)&value, sizeof(value));
-}
-
-inline void _save(std::ostream &stream, Currency value) {
-	long long out = 1000LL * value;
-	stream.write((char *)&out, sizeof(out));
-}
-
-inline void _load(std::istream &stream, Currency &value) {
-	long long in = 0;
-	stream.read((char *)&in, sizeof(in));
-	value = (double)in / 1000.;
-}
-
-
 // These functions is to make the with statement work with both
 // Shared pointers and values returned from functions
 
@@ -226,18 +214,59 @@ inline const T* _with_fixer(const T&i) {
     return &i;
 }
 
+
+
+// Functions not implemented yet
+
+void DoEvents()
+#ifdef ENABLE_GUI
+;
+#else
+{}
+#endif
+
+bool FileExists(VBString filename);
+
+VBString InputBox(VBString text, VBString title = {}, VBString defaultValue = {});
+void MessageBox(VBString text, VBString title = {});
+
 } //namespace VB
 
 using namespace VB;
 
 
 
-// Functions not implemented yet
+template <typename T>
+inline void _save(std::ostream &stream, T value) {
+	stream.write((char *)&value, sizeof(value));
+}
 
-inline void DoEvents() {}; //Todo: Implement
+template <typename T>
+inline void _load(std::istream &stream, T &value) {
+	stream.read((char *)&value, sizeof(value));
+}
 
-inline VBString InputBox(VBString text, VBString title = {}, VBString defaultValue = {});
+template <typename T>
+inline void _load(std::istream &stream, VBArray<T> &value) {
+	short lowerBound;
+	int upperBound;
+	stream.read((char *)&lowerBound, sizeof(lowerBound));
+	stream.read((char *)&upperBound, sizeof(upperBound));
+	value.resize(upperBound - lowerBound - 1);
+	for (int i = lowerBound ; i < upperBound; ++i) {
+		T element;
+		_load(stream, element);
+		value(i - lowerBound) = element;
+	}
+}
 
-inline void Cls();
-inline void Print(VBString text);
-inline void Line(double x1, double y1, double x2, double y2);
+inline void _save(std::ostream &stream, Currency value) {
+	long long out = 1000LL * value;
+	stream.write((char *)&out, sizeof(out));
+}
+
+inline void _load(std::istream &stream, Currency &value) {
+	long long in = 0;
+	stream.read((char *)&in, sizeof(in));
+	value = (double)in / 1000.;
+}

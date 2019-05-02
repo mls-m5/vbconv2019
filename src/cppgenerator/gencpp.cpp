@@ -13,7 +13,6 @@
 
 
 
-#include "gencpp.h"
 #include "common.h"
 #include "typelibrary.h"
 #include <file.h>
@@ -23,6 +22,7 @@
 #include <sstream>
 #include <algorithm>
 #include <set>
+#include "cppgen.h"
 
 using namespace std;
 
@@ -338,7 +338,15 @@ map<Token::Type, mapFunc_t*> genMap = {
 			}
 			else {
 				if (settings.headerMode) {
-					ret.children.insert(ret.begin(), Group({Token("class " + settings.unitName + ": public std::enable_shared_from_this<" + settings.unitName + "> {\npublic:\n", ret.location())}));
+					string inheritance = ": public std::enable_shared_from_this<" + settings.unitName + ">";
+					if (settings.ending == "frm") {
+						inheritance += ", public Form";
+//						ret.children.insert(ret.begin(), Token(getIndent() + settings.unitName + "() { Form_Load(); }\n", g.location()));
+					}
+					ret.children.insert(ret.begin(), Group({Token("class " + settings.unitName + inheritance + " {\npublic:\n", ret.location())}));
+					if (settings.ending == "frm") {
+						ret.children.insert(ret.begin(), Token("#include \"Form.h\"\n\n", g.location()));
+					}
 					ret.push_back(Token("};\n", ret.location()));
 				}
 			}
@@ -889,14 +897,14 @@ map<Token::Type, mapFunc_t*> genMap = {
 				ret.push_back(Token(";\n", g.back().location()));
 			}
 			else if (!blockEnd.empty() && blockEnd.back() == Token::TypeKeyword) {
-				ret.push_back(Token(getIndent(depth + 1) + "friend std::ostream &operator<<(std::ostream &stream, " + currentType.name + " &o) {\n", blockEnd.location()));
+				ret.push_back(Token(getIndent(depth + 1) + "friend std::ostream &_save(std::ostream &stream, " + currentType.name + " &o) {\n", blockEnd.location()));
 				for (auto &m: currentType.members) {
 					ret.push_back(Token(getIndent(depth + 2) + "_save(stream, o." + m.strip().spelling() + ");\n", blockEnd.location()));
 				}
 				ret.push_back(Token(getIndent(depth + 2) + "return stream;\n", blockEnd.location()));
 				ret.push_back(Token(getIndent(depth + 1) + "}\n", blockEnd.location()));
 
-				ret.push_back(Token(getIndent(depth + 1) + "friend std::istream &operator>>(std::istream &stream, " + currentType.name + " &o) {\n", blockEnd.location()));
+				ret.push_back(Token(getIndent(depth + 1) + "friend std::istream &_load(std::istream &stream, " + currentType.name + " &o) {\n", blockEnd.location()));
 				for (auto &m: currentType.members) {
 					ret.push_back(Token(getIndent(depth + 2) + "_load(stream, o." + m.strip().spelling() + ");\n", blockEnd.location()));
 				}
@@ -1033,7 +1041,7 @@ map<Token::Type, mapFunc_t*> genMap = {
 			return Group({
 				Token ("std::fstream _file" + filenumber + "(", g.location()),
 						generateCpp(g[1]),
-						Token(", std::ios::binary)", g.location()),
+						Token(", std::ios::binary | std::ios::in | std::ios::out)", g.location()),
 			});
 		}},
 
@@ -1058,10 +1066,12 @@ map<Token::Type, mapFunc_t*> genMap = {
 			}
 			auto filenumber = filenumberGroup->back();
 			auto back = commaList->back();
-			string direction = (g.type() == Token::GetStatement)? " >> " : " << ";
+			string direction = (g.type() == Token::GetStatement)? "_load(" : "_save(";
 			return Group({
-				Token("_file" + filenumber.strip().spelling() + direction, g.location()),
-						generateCpp(back)
+				Token(direction, g.location()),
+				Token("_file" + filenumber.strip().spelling() + ", ", g.location()),
+						generateCpp(back),
+						Token(")", g.location())
 			});
 		}},
 
@@ -1319,10 +1329,10 @@ map<Token::Type, mapFunc_t*> genMap = {
 
 			switch (g[1].type()) {
 			case Token::Percentage:
-				type = "int";
+				type = "short"; //VB Int
 				break;
 			case Token::Et:
-				type = "long";
+				type = "int"; //VB Long
 				break;
 			case Token::At:
 				type = "long double";

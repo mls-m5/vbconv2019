@@ -8,7 +8,6 @@
 
 #include "typelibrary.h"
 #include "token.h"
-#include "gencpp.h"
 #include <string>
 #include <dirent.h>
 #include <vector>
@@ -19,13 +18,16 @@
 #include <sstream>
 
 #include "common.h"
+#include "cppgen.h"
 
 using namespace std;
 
 namespace vbconv {
 
 
-static std::vector<TypeDeclaration> declaredTypes = {};
+static std::vector<TypeDeclaration> declaredTypes = {
+		{"Form", ScopeType::Class, "Form"}
+};
 
 
 vector<string> listFiles(const string &directory) {
@@ -235,10 +237,10 @@ Group generateTypeGroup(const Group &vbtype) {
 
 	switch (vbtype.type()) {
 	case Token::Integer:
-		return ct("int");
+		return ct("short");
 		break;
 	case Token::Long:
-		return ct("long");
+		return ct("int");
 		break;
 	case Token::At:
 		return ct("long double");

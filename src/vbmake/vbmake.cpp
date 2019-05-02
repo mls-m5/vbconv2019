@@ -117,17 +117,17 @@ int main(int argc, char **argv) {
 			}
 		}
 
-		string unitName = getUnitName(file);
-		string lcase  = toLower(unitName);
-		string compiler = getDirectory(argv[0]) + "/" + "cppgen";
-		string headerCommand = compiler + " " + file + " -o " + lcase + ".h --header --references " + references;
-		string sourceCommand = compiler + " " + file + " -o " + lcase + ".cpp --source --references " + references;
-		string headerRule = lcase + ".h: " + file + references + "\n\t" + headerCommand;
-		string sourceRule = lcase + ".cpp: " + file + " " + lcase + ".h" + "\n\t" + sourceCommand;
-		string buildRule = lcase + ".o: " + lcase + ".cpp";
-		cout << headerRule << endl;
-		cout << sourceRule << endl;
-		cout << buildRule << endl << endl;
+//		string unitName = getUnitName(file);
+//		string lcase  = toLower(unitName);
+//		string compiler = getDirectory(argv[0]) + "/" + "cppgen";
+//		string headerCommand = compiler + " " + file + " -o " + lcase + ".h --header --references " + references;
+//		string sourceCommand = compiler + " " + file + " -o " + lcase + ".cpp --source --references " + references;
+//		string headerRule = lcase + ".h: " + file + references + "\n\t" + headerCommand;
+//		string sourceRule = lcase + ".cpp: " + file + " " + lcase + ".h" + "\n\t" + sourceCommand;
+//		string buildRule = lcase + ".o: " + lcase + ".cpp";
+//		cout << headerRule << endl;
+//		cout << sourceRule << endl;
+//		cout << buildRule << endl << endl;
 	}
 }
 

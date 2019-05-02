@@ -1,3 +1,6 @@
 [submodule "tests/mls-unit-test"]
 	path = tests/mls-unit-test
 	url = https://github.com/mls-m5/mls-unit-test
+[submodule "matgui"]
+	path = matgui
+	url = git@github.com:mls-m5/matgui.git

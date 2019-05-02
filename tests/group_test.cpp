@@ -313,5 +313,10 @@ TEST_CASE("x - file load test - frmEdit.frm") {
 	}
 }
 
+TEST_CASE("encoding") {
+	TestFile f("äta");
+	ASSERT_EQ(f.tokens.spelling(), "äta");
+}
+
 
 TEST_SUIT_END
