@@ -16,7 +16,7 @@ using namespace std;
 
 struct _FormImpl: public Window {
 	Form *form;
-	_FormImpl(Form *form): Window("Form", 600, 400, true), form(form) {
+	_FormImpl(Form *form): Window("Form", 600, 480, true), form(form) {
 		linePaint.line.color(1,1,1);
 		closeSignal.connect([this]() {
 			short ret = 0;
@@ -53,7 +53,25 @@ struct _FormImpl: public Window {
 
 Form::Form(): impl(new _FormImpl(this)) {
 	impl->keyDown.connect([this](View::KeyArgument arg) {
-		this->Form_KeyDown(arg.symbol, arg.modifier);
+		if (arg.symbol < 127) {
+			this->Form_KeyDown(arg.symbol, arg.modifier);
+			cout << "Keydown: " << arg.symbol << endl;
+		}
+		else {
+			this->Form_KeyDown(arg.scanCode, arg.modifier);
+			cout << "Keydown: " << arg.scanCode << endl;
+		}
+	}, this);
+
+	impl->keyUp.connect([this](View::KeyArgument arg) {
+		if (arg.symbol < 127) {
+			this->Form_KeyUp(arg.symbol, arg.modifier);
+			cout << "Keydown: " << arg.symbol << endl;
+		}
+		else {
+			this->Form_KeyUp(arg.scanCode, arg.modifier);
+			cout << "Keydown: " << arg.scanCode << endl;
+		}
 	}, this);
 
 	impl->pointerMoved.connect([this](View::PointerArgument arg) {
@@ -89,6 +107,22 @@ void Form::Cls() {
 void Form::Print(VB::VBString text) {
 	// Todo: Implement this
 	cout << text << endl;
+}
+
+void Form::Flip() {
+	impl->swap();
+	impl->clear();
+}
+
+void Form::DrawLineDirectly(double x1, double y1, double x2, double y2, long color) {
+	if (color > -1) {
+		impl->linePaint.line.color(color);
+	}
+	impl->linePaint.drawLine(x1, y1, x2, y2);
+}
+
+void Form::SetForeColor(long color) {
+	impl->linePaint.line.color(color);
 }
 
 Form::~Form() {

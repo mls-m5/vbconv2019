@@ -10,6 +10,7 @@
 // namespace MainMod { void Main(); } using namespace MainMod;
 
 #include <matgui/application.h>
+#include <matgui/matsig.h>
 #include <SDL2/SDL.h>
 #include <sys/stat.h>
 #include "vbheader.h"
@@ -44,6 +45,7 @@ namespace VB {
 
 void DoEvents() {
 	application->handleEvents();
+	MatSig::flushSignals();
 	SDL_Delay(10);
 }
 

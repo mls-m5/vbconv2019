@@ -1165,6 +1165,13 @@ map<Token::Type, mapFunc_t*> genMap = {
 
 				return ret;
 			}
+			else if (type == Token::DefaultAsClause) {
+				return Group({
+					generateCpp(g.back().front()),
+						Token(" = ", g.location()),
+						generateCpp(g.back().back())
+				});
+			}
 			else if(type == Token::ConstStatement) {
 				return generateCpp(g[1]);
 			}

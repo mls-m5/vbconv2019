@@ -56,6 +56,16 @@ public:
 	std::vector<T> values;
 };
 
+template <typename T>
+size_t UBound(const VBArray<T> &arr) {
+	return arr.values.size();
+}
+
+template <typename T>
+size_t LBound(const VBArray<T> &arr) {
+	return 0;
+}
+
 class VBString: public std::string {
 public:
 	VBString() = default;
@@ -164,7 +174,7 @@ inline double Rnd() {
 
 inline double Timer() {
 	using namespace std::chrono;
-	return duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
+	return (double)duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count() / 1000.;
 }
 
 
@@ -222,16 +232,16 @@ inline std::string Chr(char c) {
 
 
 enum {
-	vbBlue,
-	vbWhite,
-	vbRed,
-	vbYellow,
-	vbGreen,
+	vbBlue = 0x0000ff,
+	vbWhite = 0xffffff,
+	vbRed = 0xff0000,
+	vbYellow = 0,
+	vbGreen = 0x00ff00,
 
-	vbKeyRight,
-	vbKeyLeft,
-	vbKeyUp,
-	vbKeyDown,
+	vbKeyRight = 79,
+	vbKeyLeft = 80,
+	vbKeyUp = 82,
+	vbKeyDown = 81,
 
 	vbKeyA = 'a',
 	vbKeyD = 'd',
@@ -248,7 +258,7 @@ enum {
 	vbKeyControl,
 	vbKeySpace = ' ',
 	vbKeyShift,
-	vbKeyReturn = '\n',
+	vbKeyReturn = 13,
 	vbKeyEscape,
 };
 

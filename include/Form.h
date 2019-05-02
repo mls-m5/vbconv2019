@@ -15,6 +15,7 @@ public:
 	Form();
 	virtual ~Form();
 	virtual void Form_KeyDown(short KeyCode, short Shift) {}
+	virtual void Form_KeyUp(short KeyCode, short Shift) {}
 	virtual void Form_Load() {}
 	virtual void Form_MouseDown(short Button, short Shift, float X, float Y) {}
 	virtual void Form_MouseMove(short Button, short Shift, float X, float Y) {}
@@ -26,6 +27,10 @@ public:
 	void Line(double x1, double y1, double x2, double y2);
 	void Cls();
 	void Print(VB::VBString text);
+	void SetForeColor(long color);
+
+	void Flip();
+	void DrawLineDirectly(double x1, double y1, double x2, double y2, long color = -1);
 
 	std::unique_ptr<struct _FormImpl> impl;
 };
